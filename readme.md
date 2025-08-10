@@ -1,3 +1,5 @@
+![](draw/keyball39.svg)
+
 # urob's zmk-config
 
 This is my personal [ZMK firmware](https://github.com/zmkfirmware/zmk/)
