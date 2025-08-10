@@ -58,10 +58,10 @@ draw:
     #!/usr/bin/env bash
     set -euo pipefail
     # keymap -c "{{ draw }}/config.yaml" parse -z "{{ config }}/base.keymap" --virtual-layers Combos >"{{ draw }}/base.yaml"
-    keymap -c "{{ draw }}/config.yaml" parse -z "{{ config }}/keyball39.keymap"  >"{{ draw }}/base.yaml"
+    keymap -c "{{ draw }}/config.yaml" parse -z "{{ config }}/keyball39.keymap"  >"{{ draw }}/keyball39.yaml"
     #yq -Yi '.combos.[].l = ["Combos"]' "{{ draw }}/base.yaml"
     # keymap -c "{{ draw }}/config.yaml" draw "{{ draw }}/base.yaml" -k "ferris/sweep" >"{{ draw }}/base.svg"
-    keymap -c "{{ draw }}/config.yaml" draw "{{ draw }}/base.yaml" -j "{{ config }}/keyball39.json"  >"{{ draw }}/base.svg"
+    keymap -c "{{ draw }}/config.yaml" draw "{{ draw }}/keyball39.yaml" -j "{{ config }}/keyball39.json"  >"{{ draw }}/keyball39.svg"
 
 # initialize west
 init:
