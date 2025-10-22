@@ -1,6 +1,7 @@
-![](draw/keyball39.svg)
+# urob's zmk-config modified for Keyball39
 
-# urob's zmk-config
+![](https://github.com/urob/zmk-config/blob/main/draw/keymap.png)
+![](draw/keyball39.svg)
 
 This is my personal [ZMK firmware](https://github.com/zmkfirmware/zmk/)
 configuration. It consists of a 34-keys base layout that is re-used for various
