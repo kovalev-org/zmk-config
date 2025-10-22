@@ -3,7 +3,7 @@
   "name": "keyball39",
   "layouts": {
    "default_layout": {
-      "name": "default_layout",
+      "name": "keyball39",
       "layout": [
         { "row": 0, "col":  0, "x":  0.5, "y": 1.38},
         { "row": 0, "col":  1, "x":  1.5, "y": 1.13},
