@@ -106,16 +106,12 @@ text.br, use.br { fill: var(--color-sys); }
     }
 }
 
-svg.keymap { fill: #d1d6db; }
-rect.key { fill: #3f4750; }
-rect.key, rect.combo { stroke: #60666c; }
-rect.combo, rect.combo-separate { fill: #1f3d7a; }
-rect.held, rect.combo.held { fill: #854747; }
-text.label, text.footer { stroke: black; }
-text.trans { fill: #7e8184; }
-path.combo { stroke: #7f7f7f; }
-
-svg { background-color: #121212; }
+svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #2563eb; }
+text.label  { stroke: none; fill: #000000; }
+text.footer { stroke: none; fill: #555555; }
+@media (prefers-color-scheme: dark) {
+  svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #2563eb; }
+}
 </style>
 <g transform="translate(10, 0)" class="layer-Combos">
 <text x="0" y="5" class="label" id="Combos">Combos</text>
@@ -1281,4 +1277,4 @@ svg { background-color: #121212; }
 </g>
 </g>
 </g>
-<text x="1542.0" y="1196.0" class="footer">urob/zmk-config</text></svg>
+</svg>

@@ -1,6 +1,6 @@
 # urob's zmk-config modified for Keyball39
 
-![](https://github.com/urob/zmk-config/blob/main/draw/keymap.png)
+![](draw/overview.svg)
 ![](draw/keyball39.svg)
 
 This is my personal [ZMK firmware](https://github.com/zmkfirmware/zmk/)

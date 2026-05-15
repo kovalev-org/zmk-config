@@ -174,13 +174,9 @@ parse_config:
 
 draw_config:
   append_colon_to_layer_header: false
-  dark_mode: true
+  dark_mode: false
   n_columns: 2
-  outer_pad_w: 120 # default 30
-  outer_pad_h: 60 # default 60
-  svg_extra_style: |
-    svg { background-color: #121212; }
-  footer_text: "urob/zmk-config"
+  footer_text: ""
   glyph_tap_size: 15
   glyph_hold_size: 12
   glyph_shifted_size: 10
@@ -188,6 +184,13 @@ draw_config:
   outer_pad_w: 10
   outer_pad_h: 10
   small_pad: 4
+  svg_extra_style: |
+    svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #2563eb; }
+    text.label  { stroke: none; fill: #000000; }
+    text.footer { stroke: none; fill: #555555; }
+    @media (prefers-color-scheme: dark) {
+      svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #2563eb; }
+    }
 
   svg_style: |
     svg path { fill: inherit; }
