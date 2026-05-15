@@ -6,5 +6,7 @@ firmware
 zephyr
 zmk
 draw/keyball39.yaml
+draw/base.yaml
+draw/overview.yaml
 .vscode/
 .claude/
