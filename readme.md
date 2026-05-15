@@ -1,19 +1,24 @@
-# urob's zmk-config modified for Keyball39
+# Sergey's Keyball39 zmk-config
 
 ![](draw/overview.svg)
 
 [Per-layer breakdown](draw/keyball39.svg)
 
-This is my personal [ZMK firmware](https://github.com/zmkfirmware/zmk/)
-configuration. It consists of a 34-keys base layout that is re-used for various
-boards of different sizes, including a Corneish Zen, Glove80 and Planck.
+This is my **personal, opinionated** [ZMK firmware](https://github.com/zmkfirmware/zmk/)
+configuration for the **[Keyball39](https://github.com/Yowkees/keyball)** — a 39-key
+split wireless keyboard with an integrated trackball. It is a fork of
+[urob/zmk-config](https://github.com/urob/zmk-config) (whose 34-key base layout is
+re-used here for the alphas, navigation, function, num and mouse layers) extended
+with the extra Keyball39-specific hardware and bindings.
 
-The configuration currently builds against `v0.3` of upstream ZMK, extended by various [ZMK
-modules](https://github.com/search?q=topic%3Azmk-module+fork%3Atrue+owner%3Aurob+&type=repositories).
-All build dependencies are pinned in this [`west`
-manifest](https://github.com/urob/zmk-config/blob/main/config/west.yml).
+The configuration tracks upstream ZMK `main` and Zephyr `v4.1.0+zmk-fixes`, pinned
+to specific commits in the [`west` manifest](config/west.yml). The base build
+toolchain is the Nix + `direnv` + `just` workflow inherited from upstream; on
+Windows I build via Docker (see [Local build environment](#local-build-environment)).
 
 ## Highlights
+
+Inherited from upstream urob:
 
 - ["Timeless" homerow mods](#timeless-homerow-mods)
 - Combos instead of symbol layer
@@ -28,6 +33,29 @@ manifest](https://github.com/urob/zmk-config/blob/main/config/west.yml).
 - Fully automated, nix-powered [local build environment](#local-build-environment), includes
   `dts-format` and `keymap-drawer`
 
+Specific to this fork:
+
+- [QWERTY base layer](#keyball39-specific-changes) (upstream uses Colemak)
+- Working **trackball** via Zephyr 4.1's native `pixart,pmw3610` driver — no
+  out-of-tree fork required
+- **Auto-mouse layer**: trackball motion temporarily enables the Mouse layer for 3 s
+- **Scroll mode**: hold the Nav thumb and roll the trackball — vertical-natural
+  scroll at one-third speed
+- **Multi-click-aware** Mouse-layer deactivation: a single click drops the layer
+  500 ms later, so double-/triple-click still lands cleanly
+- Dedicated **Sys layer activator** on the leftmost left thumb (`&mo SYS`), plus
+  Print Screen on the far-right thumb — both restricted to the Base layer only
+- Custom OLED font selection tuned for LVGL 9 on 1-bit displays (mixes Montserrat
+  for icons with UNSCII for the layer name)
+
+
+---
+
+> **Sections below this point describe upstream urob's design**, preserved
+> mostly verbatim from his [original readme](https://github.com/urob/zmk-config).
+> The first-person "I" in these sections is urob, not me. They cover the HRM
+> setup, the combo system, and the smart-layer / leader / swapper / magic-shift
+> machinery — all of which this fork uses unchanged.
 
 ## Timeless homerow mods
 
@@ -238,12 +266,130 @@ Bluetooth). See
 [`leader.dtsi`](https://github.com/urob/zmk-config/blob/main/config/leader.dtsi)
 for the full list of leader key sequences.
 
+## Keyball39-specific changes
+
+The Keyball39 adds 5 keys to upstream urob's 34-key base layout (4 extra left
+thumbs + 1 right "extra" that doubles as the trackball click) and ships an
+on-board trackball with a PMW3610 sensor on SPI. The deltas from upstream live
+mostly in [`config/keyball39.keymap`](config/keyball39.keymap) and
+[`config/boards/shields/keyball_nano/`](config/boards/shields/keyball_nano/).
+
+### QWERTY base layer
+
+Upstream's base layer is Colemak. I redefine the `ZMK_BASE_LAYER` macro after
+`#include "base.keymap"` and emit a second `ZMK_LAYER(Base, …)` with my QWERTY
+bindings; devicetree property merging makes my QWERTY win at the `layer_Base`
+node, but every *other* layer (Nav, Fn, Num, Sys, Mouse) keeps upstream's
+shared bindings unchanged. This means base.keymap remains untouched and can be
+re-synced from upstream cleanly.
+
+### Trackball + auto-mouse + scroll mode
+
+The PMW3610 sensor on the right half is wired up using **Zephyr 4.1's native
+`pixart,pmw3610` driver** — no third-party module required. Everything that the
+old kumamuk-git fork did via Kconfig (CPI, smart-mode, orientation) is now
+devicetree properties on the trackball node:
+
+```dts
+trackball: trackball@0 {
+    compatible = "pixart,pmw3610";
+    motion-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+    zephyr,axis-x = <INPUT_REL_Y>;  /* sensor mounted 90° rotated */
+    zephyr,axis-y = <INPUT_REL_X>;
+    invert-x;
+    res-cpi = <1200>;
+    smart-mode;
+    /* …spi properties… */
+};
+```
+
+On top of the raw driver, an input-listener chain gives the trackball three modes:
+
+- **Cursor (default)**: trackball motion moves the pointer. Every motion event
+  also activates the Mouse layer for 3 seconds (`&zip_temp_layer MOUSE 3000`),
+  so the right thumb cluster's `&mkp LCLK / MCLK / RCLK` bindings become
+  available immediately after you start moving.
+- **Scroll (hold Nav thumb)**: while the Nav layer is active, trackball motion
+  is remapped to wheel events instead of cursor motion. The chain is
+  `zip_xy_to_scroll_mapper` → `zip_scroll_scaler 1 3` (one-third speed both
+  axes) → a custom `zip_wheel_scaler -1 1` (vertical-only inversion for
+  natural-direction scrolling — upstream only ships scrolling scalers that hit
+  both axes).
+- **Multi-click-aware deactivation**: pressing any mouse button on the Mouse
+  layer routes through ZMK's built-in `mkp_input_listener`, which we extend
+  with `&zip_temp_layer MOUSE 500`. Each click re-arms the Mouse layer's
+  deactivation timer to 500 ms — well above the OS's ~250 ms double-click
+  detection window — so a double-click both lands on `&mkp LCLK` *and* leaves
+  the layer 500 ms after the *last* click of the sequence.
+
+### Layer activators on the thumbs
+
+The Keyball39's extra thumb keys absorb the layer-control role that on a 34-key
+board would be combos or homerow:
+
+| Position    | Binding             | Notes                                       |
+| ----------- | ------------------- | ------------------------------------------- |
+| LH0 (innermost left thumb) | `&lt FN RET`        | hold = Fn, tap = Return                     |
+| LH1         | `&lt_spc NAV 0`     | hold = Nav, tap = Space with shifted morph  |
+| LH5 (leftmost left thumb)  | `&mo SYS`           | hold = Sys (Bluetooth / bootloader / reset) |
+| RH0         | `&magic_shift …`    | upstream's Magic Repeat/Shift/Capsword      |
+| RH1         | `&smart_num NUM 0`  | hold = Num, tap = Smart-Num (sticky digit)  |
+| RH2 (far-right thumb)      | `&kp PSCRN`         | Print Screen, **Base layer only**           |
+
+The `&mo SYS` activator on LH5 has a subtle requirement: base.keymap installs a
+conditional layer `ZMK_CONDITIONAL_LAYER(sys, FN NUM, SYS)` that *forcibly
+deactivates* Sys whenever its if-condition (Fn AND Num both held) isn't met. Any
+direct activation via `&mo SYS` gets killed before the OLED can refresh. The fix
+is to strip that conditional from the final devicetree:
+
+```dts
+/ {
+    conditional_layers {
+        /delete-node/ tri_layer_sys;
+    };
+};
+```
+
+`/delete-node/` after `#include "base.keymap"` is reliable; a `#define
+ZMK_CONDITIONAL_LAYER` before the include doesn't work because base.keymap
+re-includes the helper macro itself.
+
+### Restricting bindings to Base only
+
+Both `&mo SYS` (LH5) and `&kp PSCRN` (RH2) should only fire when Base is the
+topmost layer — on Nav / Fn / Num / Sys / Mouse those positions should do
+nothing. The trick is to `#undef` and redefine `ZMK_BASE_LAYER` between
+`#include "base.keymap"` and the local QWERTY Base call. The pre-include macro
+puts `&none` at positions 30 and 38, so every upstream-defined layer gets
+no-ops there. The post-include macro puts `&mo SYS` and `&kp PSCRN` at the
+same positions; this is the macro that emits my QWERTY Base, which wins via DT
+merging.
+
+### OLED font
+
+The 1-bit SSD1306 on the right half needs careful font selection. LVGL 9
+(shipped with Zephyr 4.1) thresholds 4-bpp anti-aliased Montserrat glyphs onto
+the I1 framebuffer in a way that fattens stroke edges; the layer name became
+unreadable at the default Montserrat-12. The compromise:
+
+- `CONFIG_LV_FONT_DEFAULT_MONTSERRAT_16=y` for the *main* font (battery, BT,
+  USB icons need the Font-Awesome PUA glyphs that Montserrat carries).
+- `CONFIG_ZMK_LV_FONT_DEFAULT_SMALL_UNSCII_8=y` for the *layer-name* widget
+  (UNSCII is a true 1-bpp bitmap; ASCII renders crisply at the cost of the
+  tiny keyboard-symbol prefix becoming a tofu rectangle).
+
 ## Local build environment
 
-I streamline my local build process using `nix`, `direnv` and `just`. This
+Upstream's local build process uses `nix`, `direnv` and `just`. This
 automatically sets up a virtual development environment with `west`, the
 `zephyr-sdk` and all its dependencies when `cd`-ing into the ZMK-workspace. The
 environment is _completely isolated_ and won't pollute your system.
+
+> **Note (Windows)**: the Nix flake doesn't run natively on Windows. On my
+> Windows host I build inside a long-lived Docker container
+> (`zmkfirmware/zmk-build-arm:stable`) with a persistent ccache, instead of
+> running the Nix shell. Both halves produce the same `firmware/*.uf2` files
+> either way.
 
 ### Setup
 
@@ -331,10 +477,10 @@ workspace. This will parse `build.yaml` and build the firmware for all board and
 shield combinations listed there.
 
 To only build the firmware for a specific target, use `just build <target>`.
-This will build the firmware for all matching board and shield combinations. For
-instance, to build the firmware for my Corneish Zen, I can type
-`just build zen`, which builds both `corneish_zen_v2_left` and
-`corneish_zen_v2_right`. (`just list` shows all valid build targets.)
+This will build the firmware for all matching board and shield combinations.
+For this fork's `build.yaml`, `just build keyball39` builds both
+`keyball39_left` and `keyball39_right` on `nice_nano@2.0.0//zmk`. (`just list`
+shows all valid build targets.)
 
 Additional arguments to `just build` are passed on to `west`. For instance, a
 pristine build can be triggered with `just build all -p`.
@@ -401,11 +547,7 @@ it does run moderately faster, especially with a cold cache.
 
 ## Issues and workarounds
 
-Since I switched from QMK to ZMK I have been very impressed with how easy it is
-to set up relatively complex layouts in ZMK. For the most parts I don't miss any
-functionality (to the contrary, I found that ZMK supports many features natively
-that would require complex user-space implementations in QMK). Below are a few
-remaining issues:
+A few remaining sharp edges (from upstream urob's notes):
 
 - ZMK does not yet support "tap-only" combos
   ([#544](https://github.com/zmkfirmware/zmk/issues/544)), requiring a brief
