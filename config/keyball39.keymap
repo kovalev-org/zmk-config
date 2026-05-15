@@ -78,6 +78,26 @@
 
 #include "base.keymap"
 
+// Delete the FN+NUM -> SYS conditional layer that base.keymap installs via
+// ZMK_CONDITIONAL_LAYER(sys, FN NUM, SYS). ZMK's conditional-layer listener
+// runs on every layer state change and forcibly DEACTIVATES any "then-layer"
+// (here SYS) whenever its if-condition (here FN+NUM both active) is not met
+// — which collides with our direct `&mo SYS` activator on position 30 (LH5).
+// Pressing LH5 activates Sys for one instant, then the listener kills it
+// because FN+NUM aren't held, so Sys never visibly turns on. Removing the
+// conditional rule restores normal &mo SYS behavior. We don't lose
+// functionality since we have a dedicated Sys activator now.
+//
+// A `#define ZMK_CONDITIONAL_LAYER ...` before the include doesn't work
+// because base.keymap includes <zmk-helpers/helper.h> which redefines the
+// macro AFTER our override. /delete-node/ at the DT level is what actually
+// sticks.
+/ {
+    conditional_layers {
+        /delete-node/ tri_layer_sys;
+    };
+};
+
 // Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at
 // position 30 and `&kp PSCRN` at position 38; non-Base layers
 // (Nav/Fn/Num/Sys/Mouse) keep the &none from the earlier definition.
