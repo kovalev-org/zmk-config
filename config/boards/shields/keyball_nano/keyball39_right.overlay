@@ -127,13 +127,13 @@
         scroll {
             layers = <1>;
             // Chain: (1) remap X/Y to HWHEEL/WHEEL,
-            //        (2) divide both axes by 3 for a comfortable scroll speed,
+            //        (2) divide both axes by 5 for a comfortable scroll speed,
             //        (3) negate WHEEL only (vertical) to get natural-direction
             //            scrolling without affecting horizontal.
             // The cell <-1 1> on zip_wheel_scaler multiplies WHEEL by -1.
             input-processors = <
                 &zip_xy_to_scroll_mapper
-                &zip_scroll_scaler 1 3
+                &zip_scroll_scaler 1 5
                 &zip_wheel_scaler (-1) 1
             >;
         };
