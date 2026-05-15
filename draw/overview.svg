@@ -343,10 +343,6 @@ text.footer { stroke: none; fill: #555555; }
 <g transform="translate(728, 217)" class="key keypos-38">
 <rect rx="6" ry="6" x="-26" y="-26" width="52" height="52" class="key"/>
 <text x="0" y="1" class="key tap">PSCRN</text>
-<text x="-22" y="-22" class="key tl">PSCRN</text>
-<text x="22" y="-22" class="key tr">PSCRN</text>
-<text x="-22" y="22" class="key bl">PSCRN</text>
-<text x="22" y="22" class="key br">PSCRN</text>
 </g>
 </g>
 </g>
