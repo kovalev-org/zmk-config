@@ -185,13 +185,13 @@ draw_config:
   outer_pad_h: 10
   small_pad: 4
   svg_extra_style: |
-    svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #2563eb; --color-fn: #84cc16; --color-num: #a855f7; --color-sys: #bd0f30; }
+    svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #22d3ee; --color-fn: #a3e635; --color-num: #fb923c; --color-sys: #e879f9; }
     text.label  { stroke: none; fill: #000000; }
     text.footer { stroke: none; fill: #555555; }
     .layer-Base rect.key { fill: #1a0f0f; }
     .layer-Base text.tap, .layer-Base text.hold, .layer-Base text.shifted, .layer-Base text.label { fill: #f5f5f5; }
     @media (prefers-color-scheme: dark) {
-      svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #2563eb; --color-fn: #84cc16; --color-num: #a855f7; --color-sys: #bd0f30; }
+      svg.keymap { --color-bg: #ffffff; --color-key: #f0f0f0; --color-text: #1a1a1a; --color-held: #d4d4d4; --color-ghost: #b0b0b0; --color-dendron: #888888; --color-nav: #22d3ee; --color-fn: #a3e635; --color-num: #fb923c; --color-sys: #e879f9; }
     }
 
   svg_style: |
