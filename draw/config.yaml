@@ -171,5 +171,9 @@ parse_config:
 
 draw_config:
   append_colon_to_layer_header: false
-  dark_mode: auto
-  footer_text: "urob/zmk-config"
+  dark_mode: true
+  n_columns: 2
+  outer_pad_w: 120 # default 30
+  outer_pad_h: 60 # default 60
+  svg_extra_style: |
+    svg { background-color: #121212; }
