@@ -1,4 +1,5 @@
 .build
+.ccache
 .direnv
 .west
 modules
