@@ -5,7 +5,7 @@
                  LT RT                                                         \
                  LM RM                                                         \
                  LB RB                                                         \
-          &none &none &none &none LH RH &kp LC(PSCRN)                                                        \
+          &none &none &none &none LH RH &kp PSCRN                                                        \
     )
 
 /*                              39 KEY MATRIX / LAYOUT MAPPING
