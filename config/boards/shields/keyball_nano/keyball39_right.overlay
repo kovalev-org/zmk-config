@@ -95,6 +95,18 @@
 };
 
 / {
+    // Custom WHEEL-only scaler so we can negate vertical scroll (only) without
+    // also touching horizontal. Upstream ships zip_scroll_scaler which operates
+    // on both WHEEL and HWHEEL — we use that for the symmetric half-speed step
+    // and this one for the asymmetric Y-inversion step.
+    zip_wheel_scaler: zip_wheel_scaler {
+        compatible = "zmk,input-processor-scaler";
+        #input-processor-cells = <2>;
+        type = <INPUT_EV_REL>;
+        codes = <INPUT_REL_WHEEL>;
+        track-remainders;
+    };
+
     trackball_listener: trackball_listener {
         compatible = "zmk,input-listener";
         device = <&trackball>;
@@ -114,7 +126,16 @@
         // also activate while you're scrolling.
         scroll {
             layers = <1>;
-            input-processors = <&zip_xy_to_scroll_mapper>;
+            // Chain: (1) remap X/Y to HWHEEL/WHEEL,
+            //        (2) divide both axes by 3 for a comfortable scroll speed,
+            //        (3) negate WHEEL only (vertical) to get natural-direction
+            //            scrolling without affecting horizontal.
+            // The cell <-1 1> on zip_wheel_scaler multiplies WHEEL by -1.
+            input-processors = <
+                &zip_xy_to_scroll_mapper
+                &zip_scroll_scaler 1 3
+                &zip_wheel_scaler (-1) 1
+            >;
         };
     };
 };
