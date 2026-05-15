@@ -1,8 +1,8 @@
 #define CONFIG_WIRELESS
 
-// Default ZMK_BASE_LAYER for non-Base layers: position 38 (last key) is &none.
-// The Base layer redefines this macro below to put `&kp PSCRN` at position 38
-// instead, so Print Screen is only active on Base.
+// Default ZMK_BASE_LAYER for non-Base layers: positions 30 and 38 are &none.
+// Base redefines this macro below to put `&mo SYS` at position 30 and
+// `&kp PSCRN` at position 38, so both keys are only active on Base.
 #define ZMK_BASE_LAYER(name, LT, RT, LM, RM, LB, RB, LH, RH)                   \
     ZMK_LAYER(                                                                 \
         name,                                                                  \
@@ -78,11 +78,11 @@
 
 #include "base.keymap"
 
-// Redefine ZMK_BASE_LAYER so the Base layer below gets `&kp PSCRN` at
-// position 38; non-Base layers (Nav/Fn/Num/Sys/Mouse) keep the &none from
-// the earlier definition. DT property merging means this second
-// `layer_Base { bindings = <...>; }` overrides the Colemak Base from
-// base.keymap.
+// Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at
+// position 30 and `&kp PSCRN` at position 38; non-Base layers
+// (Nav/Fn/Num/Sys/Mouse) keep the &none from the earlier definition.
+// DT property merging means this second `layer_Base { bindings = <...>; }`
+// overrides the Colemak Base from base.keymap.
 #undef ZMK_BASE_LAYER
 #define ZMK_BASE_LAYER(name, LT, RT, LM, RM, LB, RB, LH, RH)                   \
     ZMK_LAYER(                                                                 \
@@ -90,7 +90,7 @@
                  LT RT                                                         \
                  LM RM                                                         \
                  LB RB                                                         \
-          &none &none &none &none LH RH &kp PSCRN                              \
+          &mo SYS &none &none &none LH RH &kp PSCRN                            \
     )
 
 // moving back to QWERTY
