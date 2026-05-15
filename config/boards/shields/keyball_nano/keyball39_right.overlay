@@ -5,6 +5,8 @@
  */
 
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <behaviors.dtsi>
+#include <input/processors.dtsi>
 
 #include "keyball39.dtsi"
 
@@ -74,9 +76,45 @@
     };
 };
 
+// Each &mkp press (LCLK/MCLK/RCLK on the Mouse layer) is also routed
+// through ZMK's built-in `mkp_input_listener`. Attaching `zip_temp_layer`
+// here re-arms the Mouse layer's deactivation timer to 500 ms on every
+// click — so the Mouse layer:
+//   - is kept alive long enough for a multi-click (double-/triple-click)
+//     because each press reschedules the timer to 500 ms again;
+//   - deactivates 500 ms after the last click of a click sequence, which
+//     feels effectively immediate to the user but still fits inside
+//     standard OS double-click detection windows (250–500 ms).
+//
+// `zip_temp_layer`'s disable work is keyed on the layer index, and each
+// `temp_layer_handle_event` call calls `k_work_reschedule(...)` — so the
+// trackball's 3000 ms schedule and this 500 ms schedule don't conflict;
+// whichever path fires latest sets the next deactivation time.
+&mkp_input_listener {
+    input-processors = <&zip_temp_layer 5 500>;
+};
+
 / {
     trackball_listener: trackball_listener {
         compatible = "zmk,input-listener";
         device = <&trackball>;
+        // Auto-mouse: every trackball motion event activates the Mouse layer
+        // (layer index 5 in base.keymap — `#define MOUSE 5`) for 3000 ms.
+        // The Mouse layer's thumb bindings turn the LH0/RH0/RH1 keys into
+        // mouse buttons; the layer auto-deactivates 3 s after the last motion
+        // (or 500 ms after the last click — see &mkp_input_listener above).
+        input-processors = <&zip_temp_layer 5 3000>;
+
+        // Scroll mode: while the Nav layer (index 1, `#define NAV 1`) is
+        // active — i.e. while LH1 / `&lt_spc NAV 0` is held — the trackball's
+        // X/Y events are remapped to horizontal/vertical wheel events
+        // instead of cursor movement, so rolling the ball scrolls.
+        // process-next is omitted (default false), so this REPLACES the
+        // default auto-mouse chain on this layer — Mouse layer doesn't
+        // also activate while you're scrolling.
+        scroll {
+            layers = <1>;
+            input-processors = <&zip_xy_to_scroll_mapper>;
+        };
     };
 };
