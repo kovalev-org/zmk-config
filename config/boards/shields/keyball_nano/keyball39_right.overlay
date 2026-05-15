@@ -3,7 +3,9 @@
  *
  * SPDX-License-Identifier: MIT
  */
- 
+
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
 #include "keyball39.dtsi"
 
 &default_transform {
@@ -21,55 +23,60 @@
 		;
 };
 
-// Trackball SPI + PMW3610 sensor node commented out — trackball is currently
-// disabled in this fork (see CLAUDE.md). Upstream Zephyr now bundles its own
-// pixart,pmw3610 binding whose required/allowed properties differ from the
-// kumamuk-git fork driver this overlay was originally written for. Restore the
-// SPI block + trackball node (and re-pin the matching driver in west.yml) when
-// re-enabling the sensor.
-//
-// &pinctrl {
-//     spi1_default: spi1_default {
-//         group1 {
-//             psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
-//                 <NRF_PSEL(SPIM_MOSI, 0, 10)>,
-//                 <NRF_PSEL(SPIM_MISO, 0, 10)>;
-//         };
-//     };
-//
-//     spi1_sleep: spi1_sleep {
-//         group1 {
-//             psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
-//                 <NRF_PSEL(SPIM_MOSI, 0, 10)>,
-//                 <NRF_PSEL(SPIM_MISO, 0, 10)>;
-//             low-power-enable;
-//         };
-//     };
-// };
-//
-// &spi1 {
-//     status = "okay";
-//     compatible = "nordic,nrf-spim";
-//     pinctrl-0 = <&spi1_default>;
-//     pinctrl-1 = <&spi1_sleep>;
-//     pinctrl-names = "default", "sleep";
-//     cs-gpios = <&gpio0 9 GPIO_ACTIVE_LOW>;
-//
-//     trackball: trackball@0 {
-//         status = "okay";
-//         compatible = "pixart,pmw3610";
-//         reg = <0>;
-//         spi-max-frequency = <2000000>;
-//         irq-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-//         automouse-layer = <1>;
-//         scroll-layers = <2>;
-//     };
-// };
+&pinctrl {
+    spi1_default: spi1_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
+                <NRF_PSEL(SPIM_MOSI, 0, 10)>,
+                <NRF_PSEL(SPIM_MISO, 0, 10)>;
+        };
+    };
 
-// / {
-//   trackball_listener {
-//     compatible = "zmk,input-listener";
-//     device = <&trackball>;
-//     // status = "okay";
-//   };
-// };
+    spi1_sleep: spi1_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
+                <NRF_PSEL(SPIM_MOSI, 0, 10)>,
+                <NRF_PSEL(SPIM_MISO, 0, 10)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi1 {
+    status = "okay";
+    compatible = "nordic,nrf-spim";
+    pinctrl-0 = <&spi1_default>;
+    pinctrl-1 = <&spi1_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio0 9 GPIO_ACTIVE_LOW>;
+
+    trackball: trackball@0 {
+        status = "okay";
+        compatible = "pixart,pmw3610";
+        reg = <0>;
+        spi-max-frequency = <2000000>;
+        // Motion IRQ pin (was `irq-gpios` in the kumamuk-git fork; upstream
+        // Zephyr's pixart,pmw3610 binding calls it motion-gpios).
+        motion-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        // Required by upstream binding: map sensor axes to input events.
+        // Sensor is mounted rotated 90° relative to user view (sensor +X points
+        // "user up", sensor +Y points "user right"), so cross-wire the axes
+        // and invert the X mapping. Original kumamuk-git config used
+        // CONFIG_PMW3610_ORIENTATION_180=y which did *both* axes but did not
+        // also swap — translation to the upstream binding ends up here.
+        zephyr,axis-x = <INPUT_REL_Y>;
+        zephyr,axis-y = <INPUT_REL_X>;
+        invert-x;
+        // Was CONFIG_PMW3610_CPI=1200.
+        res-cpi = <1200>;
+        // Was CONFIG_PMW3610_SMART_ALGORITHM=y.
+        smart-mode;
+    };
+};
+
+/ {
+    trackball_listener: trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackball>;
+    };
+};
