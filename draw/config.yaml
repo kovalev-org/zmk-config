@@ -175,7 +175,7 @@ parse_config:
 draw_config:
   append_colon_to_layer_header: false
   dark_mode: false
-  n_columns: 2
+  n_columns: 1
   footer_text: ""
   glyph_tap_size: 15
   glyph_hold_size: 12
