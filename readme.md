@@ -47,6 +47,15 @@ Specific to this fork:
   Print Screen on the far-right thumb — both restricted to the Base layer only
 - Custom OLED font selection tuned for LVGL 9 on 1-bit displays (mixes Montserrat
   for icons with UNSCII for the layer name)
+- **On-device TOTP authenticator**: 16 slots of HMAC-SHA1 TOTP keys stored in
+  the right half's flash. Pressing `&totp <slot>` generates the current
+  6-digit code and types it on the host. Slots are provisioned over BLE from
+  a small Rust CLI in [`tools/totp-companion/`](tools/totp-companion/); keys
+  are write-only (the keyboard never reveals them back). A dedicated **TOTP
+  layer** maps slots 1–12 onto the same physical key positions Fn uses for
+  F1–F12. See [TOTP authenticator](#totp-authenticator) below and
+  [`tools/totp-companion/README.md`](tools/totp-companion/README.md) for the
+  wire protocol, threat model, and CLI usage.
 
 
 ---
@@ -377,6 +386,61 @@ unreadable at the default Montserrat-12. The compromise:
 - `CONFIG_ZMK_LV_FONT_DEFAULT_SMALL_UNSCII_8=y` for the *layer-name* widget
   (UNSCII is a true 1-bpp bitmap; ASCII renders crisply at the cost of the
   tiny keyboard-symbol prefix becoming a tofu rectangle).
+
+## TOTP authenticator
+
+The right half stores up to **16 TOTP slots** (HMAC-SHA1, 6 digits, 30 s
+period — the RFC 6238 default that every authenticator app supports) in the
+same flash partition as BLE bonds, so slots survive reflashes the same way
+your pairings do. Pressing `&totp <slot>` generates the current code and
+types it on the host as 6 keystrokes.
+
+**Storage shape:**
+- Each slot holds a 16-byte UTF-8 label (readable) + a 1..32 byte HMAC key
+  (write-only — the keyboard never reads it back out over BLE).
+- Slots are stored as `kb39_totp/slot/N` entries via Zephyr's `settings`
+  subsystem.
+
+**Provisioning** is done with a small Rust CLI in
+[`tools/totp-companion/`](tools/totp-companion/). It connects to the right
+half by OS-paired BLE name (default `Keyball39`), pushes current host time,
+and reads/writes the slot table. See that directory's README for full usage,
+the wire protocol, and security caveats. Example:
+
+```sh
+keyball39-totp list                                    # show current slots
+keyball39-totp write 1 github JBSWY3DPEHPK3PXP         # provision slot 1
+keyball39-totp set-label 1 github-work                 # rename
+keyball39-totp delete 1                                # erase
+```
+
+**Time sync.** The keyboard has no battery-backed RTC, so wall-clock time is
+RAM-only and re-pushed by the CLI on every connect. After any power cycle or
+reflash you must run *any* `keyball39-totp` command (even a bare `list`)
+before TOTP works — the `&totp` behavior refuses to type until time has been
+synced at least once.
+
+**Keymap surface.** A dedicated **TOTP layer** lives next to Sys on the left
+thumb cluster. Hold `LH4` (the key immediately right of `&mo SYS`) to
+activate it; the layer maps `&totp 1..12` onto the same physical positions
+that Fn uses for F1–F12, so muscle-memory carries over:
+
+```
+ T12  T7   T8   T9   _
+ T11  T4   T5   T6   _
+ T10  T1   T2   T3   _
+```
+
+(Slots 0 and 13–15 are reachable too — they exist in storage — they just
+aren't bound to a key by default. Edit `config/keyball39.keymap` to add more
+bindings if you want them.)
+
+**Threat model in one paragraph.** The TOTP secrets live in unencrypted
+flash. Anyone with physical access to the keyboard and a SWD probe can dump
+them — same hardware-trust model as a YubiKey OATH without a PIN. The BLE
+provisioning link requires an encrypted (bonded) connection, so only hosts
+you've paired with can write secrets. The keys are write-only from the BLE
+side: even a bonded host can't read them back out.
 
 ## Local build environment
 

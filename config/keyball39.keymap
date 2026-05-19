@@ -98,9 +98,44 @@
     };
 };
 
-// Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at
-// position 30 and `&kp PSCRN` at position 38; non-Base layers
-// (Nav/Fn/Num/Sys/Mouse) keep the &none from the earlier definition.
+// On-device TOTP behavior node. The DT node is defined unconditionally on
+// both halves (the keymap is shared, and Kconfig-derived CONFIG_* macros
+// aren't visible to the keymap preprocessor — only manual #defines are, so
+// `#if defined(CONFIG_SHIELD_KEYBALL39_RIGHT)` silently evaluates false in
+// this file). The C driver in behavior_totp.c is still gated to the right
+// shield via CMakeLists; on a left build the device just isn't instantiated.
+//
+// Current bindings: Sys layer Y / U / I are `&totp 0 / 5 / 15` for testing.
+// Activate Sys (hold LH5 = leftmost left thumb) then press Y, U, or I to
+// type the TOTP for that slot. The host pushes time automatically via the
+// CLI; if you've power-cycled and haven't run `keyball39-totp list` since,
+// &totp will log "host time not yet synced" and refuse to type.
+/ {
+    behaviors {
+        totp: behavior_totp {
+            compatible = "zmk,behavior-totp";
+            #binding-cells = <1>;
+            display-name = "TOTP";
+        };
+    };
+};
+
+// TOTP layer index — comes after base.keymap's DEF/NAV/FN/NUM/SYS/MOUSE (0..5)
+// in declaration order, so this is 6. Must match the order ZMK_LAYER(Totp, ...)
+// is emitted below.
+//
+// Note: the *layer name* must be a token that's NOT the same as this macro,
+// otherwise `ZMK_BASE_LAYER(TOTP, ...)` would preprocessor-substitute TOTP→6
+// before ZMK_LAYER's `##` paste, producing `layer_6` with `display-name = "6"`.
+// Using mixed-case `Totp` for the layer name sidesteps that — `&mo TOTP` still
+// works because TOTP=6 is the activator macro, while `layer_Totp` /
+// `display-name = "Totp"` is what the OLED sees.
+#define TOTP 6
+
+// Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at position
+// 30 (LH5) and `&mo TOTP` at position 31 (LH4 — the key immediately right of
+// the Sys activator), plus `&kp PSCRN` at position 38. Non-Base layers
+// (Nav/Fn/Num/Sys/Mouse/TOTP) keep the &none from the earlier definition.
 // DT property merging means this second `layer_Base { bindings = <...>; }`
 // overrides the Colemak Base from base.keymap.
 #undef ZMK_BASE_LAYER
@@ -110,7 +145,7 @@
                  LT RT                                                         \
                  LM RM                                                         \
                  LB RB                                                         \
-          &mo SYS &none &none &none LH RH &kp PSCRN                            \
+          &mo SYS &mo TOTP &none &none LH RH &kp PSCRN                         \
     )
 
 // moving back to QWERTY
@@ -128,3 +163,57 @@ ZMK_BASE_LAYER(Base,
 
 // return single quote that was erased by letter P
 // ZMK_COMBO(sqt,  &kp SQT,     RT3 RT4,         DEF    , COMBO_TERM_FAST, COMBO_IDLE_FAST)
+
+// TOTP layer: mirrors the Fn layer's F-key positions on the left half so the
+// muscle memory is "same finger position as F<N>, but on TOTP layer". Activated
+// by `&mo TOTP` at position 31 (LH4 — right of the Sys activator).
+//
+//   Position →    Fn layer    TOTP layer
+//   LT4           F12         &totp 12
+//   LT3           F7          &totp 7
+//   LT2           F8          &totp 8
+//   LT1           F9          &totp 9
+//   LM4           F11         &totp 11
+//   LM3           F4          &totp 4
+//   LM2           F5          &totp 5
+//   LM1           F6          &totp 6
+//   LB4           F10         &totp 10
+//   LB3           F1          &totp 1
+//   LB2           F2          &totp 2
+//   LB1           F3          &totp 3
+//
+// Slot 0 isn't reachable from this layer (Fn has no F0). Provision into 1-12
+// via the CLI: `keyball39-totp write 1 <label> <base32>`.
+#undef ZMK_BASE_LAYER
+#define ZMK_BASE_LAYER(name, LT, RT, LM, RM, LB, RB, LH, RH)                   \
+    ZMK_LAYER(                                                                 \
+        name,                                                                  \
+                 LT RT                                                         \
+                 LM RM                                                         \
+                 LB RB                                                         \
+          &none &none &none &none LH RH &none                                  \
+    )
+
+ZMK_BASE_LAYER(Totp,
+//╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮ ╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮
+    &totp 12      &totp 7       &totp 8       &totp 9       ___         ,   ___           ___           ___           ___           ___         ,
+//├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+    &totp 11      &totp 4       &totp 5       &totp 6       ___         ,   ___           ___           ___           ___           ___         ,
+//├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+    &totp 10      &totp 1       &totp 2       &totp 3       ___         ,   ___           ___           ___           ___           ___         ,
+//╰─────────────┼─────────────┴─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┴───────────────────────────╯
+                                              ___           ___         ,   ___           ___
+//                                          ╰─────────────┴─────────────╯ ╰─────────────┴─────────────╯
+)
+
+// Override the auto-generated `display-name = "Totp"` (derived by stringifying
+// the layer-name token, which has to be mixed-case to avoid the `TOTP` macro
+// expansion described above). DT property merging lets us set the cosmetic
+// name to all-caps so the OLED shows "TOTP" when this layer is active.
+/ {
+    keymap {
+        layer_Totp {
+            display-name = "TOTP";
+        };
+    };
+};

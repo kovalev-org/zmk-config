@@ -1,0 +1,23 @@
+[package]
+name = "keyball39-totp"
+version = "0.1.0"
+edition = "2021"
+description = "Provisioning CLI for the Keyball39 keyboard's on-device TOTP store."
+
+[[bin]]
+name = "keyball39-totp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+base32 = "0.5"
+bluest = "0.6"
+clap = { version = "4", features = ["derive"] }
+dialoguer = { version = "0.11", default-features = false }
+futures-util = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+uuid = "1"
+
+[profile.release]
+lto = "thin"
+strip = true

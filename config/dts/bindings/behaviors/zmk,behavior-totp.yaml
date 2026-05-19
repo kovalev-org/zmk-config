@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Sergey Kovalev
+# SPDX-License-Identifier: MIT
+
+description: |
+  Generate a TOTP code for the given slot and type it on the host as 6 digits.
+  Also flashes the slot's label on the OLED for ~3 seconds.
+
+compatible: "zmk,behavior-totp"
+
+include: one_param.yaml
