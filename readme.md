@@ -639,6 +639,24 @@ A few remaining sharp edges (from upstream urob's notes):
 - Very minor: `&bootloader` doesn't work with stm32 boards like the Planck
   ([#1086](https://github.com/zmkfirmware/zmk/issues/1086))
 
+Specific to this fork:
+
+- **Leader-key combos are disabled** in [`config/combos.dtsi`](config/combos.dtsi).
+  The leader behavior itself works correctly (verified by capturing USB-CDC
+  logs — `D+F` fires `&leader` and the subsequent keys are matched against the
+  sequence table). But every leader sequence in
+  [`config/leader.dtsi`](config/leader.dtsi) invokes `&uc UC_*` from the
+  `zmk-unicode` module, and the firmware ships with
+  `default-mode = UC_MODE_WIN_COMPOSE`. That mode emits
+  `RAlt+U <hex codepoint> Enter`, which **requires
+  [WinCompose](https://wincompose.info/) to be installed on the Windows host**
+  to interpret as a Unicode character. Without it, Windows treats the
+  keystrokes as `Alt+letter` shortcuts and opens random menus instead of
+  typing α, ä, etc. Uncomment the `ldr` line in `combos.dtsi` once you've
+  installed WinCompose (or changed the firmware default to
+  `UC_MODE_WIN_ALT`, which uses native Windows Alt+numpad codes with a
+  `EnableHexNumpad=1` registry tweak).
+
 ## Related resources
 
 - The

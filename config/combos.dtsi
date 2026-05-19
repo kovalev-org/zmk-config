@@ -30,7 +30,17 @@ ZMK_COMBO(mouse, &smart_mouse, LT2 LT1,     DEF NAV NUM, COMBO_TERM_FAST, COMBO_
 // chording of mods. Custom hold-tap instances can be bootstrapped on the go using the
 // 8-argument version of ZMK_COMBO defined in base.keymap.
 ZMK_COMBO(tab,   &kp TAB, LM3 LM2, DEF NAV NUM, COMBO_TERM_FAST, COMBO_IDLE_FAST)
-// ZMK_COMBO(ldr,   &leader,      LM2 LM1,     DEF NAV NUM, COMBO_TERM_FAST, COMBO_IDLE_FAST, LS(LCTRL),    KEYS_R)
+// Leader-key combos are commented out. The leader behavior itself works
+// (verified via USB-CDC logging — D+F correctly fires &leader and the
+// listener captures subsequent keys), but every leader sequence in
+// `leader.dtsi` invokes `&uc UC_*` (zmk-unicode), and the firmware ships
+// with `default-mode = UC_MODE_WIN_COMPOSE`. That mode emits `RAlt+U <hex>
+// Enter`, which requires WinCompose installed on the host to interpret as
+// a Unicode character. Without it (Windows default), the host sees raw
+// `Alt+letter` shortcuts and opens menus instead of typing α, ä, etc.
+// Re-enable either combo line once WinCompose is installed or the firmware
+// default is changed to UC_MODE_WIN_ALT.
+// ZMK_COMBO(ldr,   &leader,      LM2 LM1,     DEF NAV NUM, COMBO_TERM_FAST, COMBO_IDLE_FAST)
 // ZMK_COMBO(ldrsh, &leader_sft,  LM3 LM2 LM1, DEF NAV NUM, COMBO_TERM_FAST, COMBO_IDLE_FAST, LS(LC(LALT)), KEYS_R)
 
 ZMK_COMBO(cut,   &kp LC(X),    LB3 LB1,     DEF NAV NUM, COMBO_TERM_FAST, COMBO_IDLE_FAST)
