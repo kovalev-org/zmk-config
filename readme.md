@@ -49,11 +49,13 @@ Specific to this fork:
   for icons with UNSCII for the layer name)
 - **On-device TOTP authenticator**: 16 slots of HMAC-SHA1 TOTP keys stored in
   the right half's flash. Pressing `&totp <slot>` generates the current
-  6-digit code and types it on the host. Slots are provisioned over BLE from
-  a small Rust CLI in [`tools/totp-companion/`](tools/totp-companion/); keys
-  are write-only (the keyboard never reveals them back). A dedicated **TOTP
-  layer** maps slots 1–12 onto the same physical key positions Fn uses for
-  F1–F12. See [TOTP authenticator](#totp-authenticator) below and
+  6-digit code, types it on the host, and flashes the slot's label on the
+  OLED for ~3 s in place of the layer name (or `Time not set` / `Slot empty`
+  if the press fails). Slots are provisioned over BLE from a small Rust CLI
+  in [`tools/totp-companion/`](tools/totp-companion/); keys are write-only
+  (the keyboard never reveals them back). A dedicated **TOTP layer** maps
+  slots 1–12 onto the same physical key positions Fn uses for F1–F12. See
+  [TOTP authenticator](#totp-authenticator) below and
   [`tools/totp-companion/README.md`](tools/totp-companion/README.md) for the
   wire protocol, threat model, and CLI usage.
 
@@ -434,6 +436,21 @@ that Fn uses for F1–F12, so muscle-memory carries over:
 (Slots 0 and 13–15 are reachable too — they exist in storage — they just
 aren't bound to a key by default. Edit `config/keyball39.keymap` to add more
 bindings if you want them.)
+
+**OLED feedback.** When `&totp <slot>` fires the right half's OLED replaces
+the current layer name with one of:
+- the slot's label (success — the same 6 digits are typed on the host),
+- `Time not set` if the CLI hasn't pushed host time since the keyboard last
+  booted (the keyboard refuses to type a code in this case), or
+- `Slot empty` if the slot has no key provisioned.
+
+The message holds for ~3 s and then reverts to the current layer name. This
+is delivered by a custom status screen + widget pair
+(`config/boards/shields/keyball_nano/{status_screen_custom,widget_layer_or_totp}.c`)
+that replaces upstream's `zmk_widget_layer_status`. Enabling that path
+requires `CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM=y` plus the per-widget
+Kconfigs and **`CONFIG_LV_Z_MEM_POOL_SIZE=4096`** — see
+`keyball39_right.conf`.
 
 **Threat model in one paragraph.** The TOTP secrets live in unencrypted
 flash. Anyone with physical access to the keyboard and a SWD probe can dump

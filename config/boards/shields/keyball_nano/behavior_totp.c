@@ -118,10 +118,12 @@ static int on_totp_pressed(struct zmk_behavior_binding *binding,
     int err = totp_generate_code(slot, typing.code);
     if (err == -ENOENT) {
         LOG_WRN("totp: slot %d is empty", slot);
+        keyball39_totp_widget_flash_label(TOTP_MSG_SLOT_EMPTY);
         return ZMK_BEHAVIOR_OPAQUE;
     }
     if (err == -EAGAIN) {
         LOG_WRN("totp: host time not yet synced; run `keyball39-totp list` to push it");
+        keyball39_totp_widget_flash_label(TOTP_MSG_TIME_NOT_SET);
         return ZMK_BEHAVIOR_OPAQUE;
     }
     if (err) {

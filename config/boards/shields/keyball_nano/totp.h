@@ -12,6 +12,12 @@
 #define TOTP_LABEL_LEN      16
 #define TOTP_CODE_LEN       6      /* digits */
 
+/* User-facing OLED messages for the failure paths in `&totp <slot>`.
+ * Centralised so the caller (behavior_totp.c) and the widget that renders
+ * them agree on the exact text. */
+#define TOTP_MSG_SLOT_EMPTY    "Slot empty"
+#define TOTP_MSG_TIME_NOT_SET  "Time not set"
+
 /*
  * Compute the current TOTP code for a slot.
  *

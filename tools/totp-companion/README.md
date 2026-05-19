@@ -7,10 +7,13 @@ partition. This tool writes them, renames them, deletes them, and lists what's
 where. Keys are **write-only** — they can be written but never read back.
 
 The matching keyboard-side behavior `&totp <slot>` (firmware) takes one slot
-index, computes the current 6-digit TOTP, and types it via HID. On the stock
-Keyball39 keymap that's bound to a dedicated `TOTP` layer (hold `LH4`, the
-key right of the Sys activator) with slots 1–12 mapped to the same physical
-positions Fn uses for F1–F12.
+index, computes the current 6-digit TOTP, types it via HID, and flashes the
+slot's label on the OLED for ~3 seconds in place of the layer name. If the
+slot is empty the OLED shows `Slot empty`; if host time hasn't been synced
+since boot it shows `Time not set` and refuses to type. On the stock
+Keyball39 keymap `&totp` is bound to a dedicated `TOTP` layer (hold `LH4`,
+the key right of the Sys activator) with slots 1–12 mapped to the same
+physical positions Fn uses for F1–F12.
 
 ## What you need
 
