@@ -1,4 +1,10 @@
 name: Build Keyball39 firmware
+
+# Disambiguate runs in the GH UI: the default `displayTitle` is the HEAD
+# commit message, which is misleading when a single push triggers both this
+# workflow and the CLI one — both rows end up with the same title.
+run-name: 'Firmware build · ${{ github.event.head_commit.message || github.ref_name }}'
+
 on:
   push:
     paths:

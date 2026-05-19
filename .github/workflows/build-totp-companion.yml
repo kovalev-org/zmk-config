@@ -1,5 +1,10 @@
 name: Build totp-companion CLI
 
+# Disambiguate runs in the GH UI: the default `displayTitle` is the HEAD
+# commit message, which is misleading when a single push triggers both this
+# workflow and the firmware one — both rows end up with the same title.
+run-name: 'CLI build · ${{ github.event.head_commit.message || github.ref_name }}'
+
 on:
   push:
     paths:
