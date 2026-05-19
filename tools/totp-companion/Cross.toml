@@ -1,0 +1,14 @@
+# cross-rs config. Lets `cross build --release --target aarch64-unknown-linux-gnu`
+# cross-compile bluest's libdbus dependency without needing native ARM64 dev libs
+# on the build host. Used by .github/workflows/build-totp-companion.yml.
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get install --assume-yes libdbus-1-dev:$CROSS_DEB_ARCH pkg-config",
+]
+
+[target.aarch64-unknown-linux-gnu.env]
+passthrough = [
+    "PKG_CONFIG_ALLOW_CROSS=1",
+]

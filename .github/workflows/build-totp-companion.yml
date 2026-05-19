@@ -1,0 +1,110 @@
+name: Build totp-companion CLI
+
+on:
+  push:
+    paths:
+      - 'tools/totp-companion/**'
+      - '.github/workflows/build-totp-companion.yml'
+  pull_request:
+    paths:
+      - 'tools/totp-companion/**'
+      - '.github/workflows/build-totp-companion.yml'
+  release:
+    types: [created]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # for release uploads
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_suffix: linux-x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_suffix: linux-arm64
+            use_cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_suffix: macos-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_suffix: macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_suffix: windows-x64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact_suffix: windows-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/totp-companion/target
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('tools/totp-companion/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.target }}-cargo-
+
+      # bluest pulls in libdbus on Linux via pkg-config. Native x64 needs the
+      # dev package installed; ARM64 is handled by cross's Docker image (see
+      # tools/totp-companion/Cross.toml).
+      - name: Install Linux build deps (native x64)
+        if: matrix.os == 'ubuntu-latest' && matrix.use_cross != true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Install cross (Linux ARM64)
+        if: matrix.use_cross == true
+        run: cargo install cross --locked
+
+      - name: Build (native)
+        if: matrix.use_cross != true
+        working-directory: tools/totp-companion
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (cross)
+        if: matrix.use_cross == true
+        working-directory: tools/totp-companion
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Package artifact
+        working-directory: tools/totp-companion
+        shell: bash
+        run: |
+          ext=""
+          [[ "${{ matrix.target }}" == *windows* ]] && ext=".exe"
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/keyball39-totp${ext}" \
+             "dist/keyball39-totp-${{ matrix.artifact_suffix }}${ext}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyball39-totp-${{ matrix.artifact_suffix }}
+          path: tools/totp-companion/dist/*
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tools/totp-companion/dist/*
