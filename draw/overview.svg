@@ -117,6 +117,7 @@ text.combo { font-weight: bold; }
 }
 
 .layer-Base .keypos-30 rect.key { fill: #c026d3; }
+.layer-Base .keypos-31 rect.key { fill: #e11d48; }
 .layer-Base .keypos-34 rect.key { fill: #0891b2; }
 .layer-Base .keypos-35 rect.key { fill: #4d7c0f; }
 .layer-Base .keypos-37 rect.key { fill: #ea580c; }
@@ -318,6 +319,7 @@ text.tl, text.tr, text.bl, text.br { font-weight: bold; }</style>
 </g>
 <g transform="translate(84, 203)" class="key keypos-31">
 <rect rx="6" ry="6" x="-26" y="-26" width="52" height="52" class="key"/>
+<text x="0" y="1" class="key tap">TOTP</text>
 </g>
 <g transform="translate(140, 196)" class="key keypos-32">
 <rect rx="6" ry="6" x="-26" y="-26" width="52" height="52" class="key"/>
