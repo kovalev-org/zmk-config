@@ -398,7 +398,7 @@ your pairings do. Pressing `&totp <slot>` generates the current code and
 types it on the host as 6 keystrokes.
 
 **Storage shape:**
-- Each slot holds a 16-byte UTF-8 label (readable) + a 1..32 byte HMAC key
+- Each slot holds a 16-byte UTF-8 label (readable) + a 1..64 byte HMAC key
   (write-only — the keyboard never reads it back out over BLE).
 - Slots are stored as `kb39_totp/slot/N` entries via Zephyr's `settings`
   subsystem.

@@ -86,7 +86,7 @@ slot  label
 |---|---|---|
 | Slots | 16 | Compile-time constant on the firmware side |
 | Label | 16 bytes UTF-8, no NUL | Fits one line on the OLED in UNSCII-8 |
-| Key | 1..32 bytes (after base32 decode) | Covers SHA-1 and SHA-256 HMAC keys |
+| Key | 1..64 bytes (after base32 decode) | HMAC-SHA1 block size; longer keys are pre-hashed to 20 bytes anyway |
 | TOTP variant | SHA-1, 6 digits, 30s period | v1 firmware only generates this |
 
 A label longer than 16 bytes, or a secret that doesn't decode as base32, gets
@@ -145,7 +145,7 @@ Commands on the command characteristic are TLV: one opcode byte, then payload.
 | `0x03` | `WRITE_SLOT` | `u8 slot, [16]u8 label, u8 key_len, key bytes` |
 | `0x04` | `DELETE_SLOT` | `u8 slot` |
 
-Labels are NUL-padded to 16 bytes. Keys are 1..32 raw bytes (no length prefix
+Labels are NUL-padded to 16 bytes. Keys are 1..64 raw bytes (no length prefix
 on the wire beyond `key_len`).
 
 The slots characteristic is 16 × 17 bytes = 272 bytes:

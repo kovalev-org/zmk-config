@@ -12,7 +12,7 @@ pub const SLOTS_CHAR_UUID: Uuid = uuid!("e0c25aab-1d27-4f1f-b6a1-71b011000003");
 
 pub const SLOT_COUNT: usize = 16;
 pub const LABEL_LEN: usize = 16;
-pub const KEY_MAX_LEN: usize = 32;
+pub const KEY_MAX_LEN: usize = 64;
 pub const SLOT_ENTRY_LEN: usize = 1 + LABEL_LEN;
 pub const SLOTS_PAYLOAD_LEN: usize = SLOT_COUNT * SLOT_ENTRY_LEN;
 

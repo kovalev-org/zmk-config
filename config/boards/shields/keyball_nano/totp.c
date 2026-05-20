@@ -35,7 +35,16 @@
 LOG_MODULE_REGISTER(keyball39_totp, CONFIG_LOG_DEFAULT_LEVEL);
 
 /* TOTP_SLOT_COUNT and TOTP_LABEL_LEN come from totp.h. */
-#define TOTP_KEY_MAX_LEN    32
+/*
+ * 64 = HMAC-SHA1 block size. Keys longer than this are pre-hashed to 20 bytes
+ * by hmac_sha1() below, so the firmware would still work — but any key bigger
+ * than the block size is functionally identical to its SHA-1 digest, so 64 is
+ * the largest *useful* raw key. Bumping the cap changes sizeof(struct totp_slot)
+ * (the BUILD_ASSERT and the settings size-check enforce this); on first boot
+ * with a new cap, slots stored at the old size are silently discarded by the
+ * length check in totp_settings_set() and must be re-provisioned.
+ */
+#define TOTP_KEY_MAX_LEN    64
 #define TOTP_SLOT_VERSION   1
 #define TOTP_PERIOD_SEC     30
 
