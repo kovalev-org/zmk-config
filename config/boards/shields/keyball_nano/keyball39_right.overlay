@@ -69,10 +69,22 @@
         zephyr,axis-x = <INPUT_REL_Y>;
         zephyr,axis-y = <INPUT_REL_X>;
         invert-x;
-        // Was CONFIG_PMW3610_CPI=1200.
-        res-cpi = <1200>;
-        // Was CONFIG_PMW3610_SMART_ALGORITHM=y.
-        smart-mode;
+        // CPI bumped from 1200 → 2000. PMW3610 supports 200..3200 in steps
+        // of 200. Higher CPI = more counts per unit physical motion, which
+        // smooths slow-speed tracking (less aggressive integer rounding by
+        // the sensor's internal accumulator).
+        res-cpi = <2000>;
+        // smart-mode (PixArt's surface-coverage algorithm) is deliberately
+        // omitted. It throttles sampling when the shutter value drops below
+        // 45, which the datasheet describes for low-contrast surfaces like
+        // granite or tile. On a uniform trackball ball the threshold flips
+        // back and forth as you roll and produces visible skipping; disabling
+        // it gives consistent sampling at the cost of slightly more power.
+        //
+        // force-awake keeps the sensor at its full sample rate while ZMK is
+        // ACTIVE instead of letting it drop into rest1/rest2 modes during
+        // brief pauses — eliminates first-motion latency after a pause.
+        force-awake;
     };
 };
 
@@ -107,6 +119,19 @@
         track-remainders;
     };
 
+    // Custom cursor scaler covering both REL_X and REL_Y. The predefined
+    // &zip_xy_scaler doesn't enable track-remainders, so a divisor != 1 would
+    // discard every fractional count — exactly the "skipping at slow speeds"
+    // failure mode we're trying to avoid. With track-remainders the dropped
+    // fraction is carried forward and added to the next event.
+    zip_xy_cursor_scaler: zip_xy_cursor_scaler {
+        compatible = "zmk,input-processor-scaler";
+        #input-processor-cells = <2>;
+        type = <INPUT_EV_REL>;
+        codes = <INPUT_REL_X INPUT_REL_Y>;
+        track-remainders;
+    };
+
     trackball_listener: trackball_listener {
         compatible = "zmk,input-listener";
         device = <&trackball>;
@@ -115,7 +140,14 @@
         // The Mouse layer's thumb bindings turn the LH0/RH0/RH1 keys into
         // mouse buttons; the layer auto-deactivates 3 s after the last motion
         // (or 500 ms after the last click — see &mkp_input_listener above).
-        input-processors = <&zip_temp_layer 5 3000>;
+        //
+        // The cursor scaler (1/2) sits after the layer activator so the
+        // activator sees the raw, unscaled motion stream — micro-motions that
+        // would scale to zero still keep the Mouse layer alive.
+        input-processors = <
+            &zip_temp_layer 5 3000
+            &zip_xy_cursor_scaler 1 2
+        >;
 
         // Scroll mode: while the Nav layer (index 1, `#define NAV 1`) is
         // active — i.e. while LH1 / `&lt_spc NAV 0` is held — the trackball's
