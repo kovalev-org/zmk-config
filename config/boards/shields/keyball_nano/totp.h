@@ -8,7 +8,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define TOTP_SLOT_COUNT     16
+/*
+ * 30 = floor(512 / SLOT_ENTRY_LEN) where SLOT_ENTRY_LEN = 1 + TOTP_LABEL_LEN = 17.
+ * 512 is the Bluetooth ATT spec cap on a single attribute value, which limits
+ * how much state the `slots` GATT characteristic can hold in one read. Bumping
+ * past 30 requires a wire-format change (pagination or per-slot reads).
+ */
+#define TOTP_SLOT_COUNT     30
 #define TOTP_LABEL_LEN      16
 #define TOTP_CODE_LEN       6      /* digits */
 

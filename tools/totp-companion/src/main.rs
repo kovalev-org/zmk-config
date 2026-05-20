@@ -26,7 +26,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Show all 16 slots and their labels.
+    /// Show all 30 slots and their labels.
     List,
     /// Write a new key (or overwrite an existing one).
     Write {

@@ -10,7 +10,10 @@ pub const SERVICE_UUID: Uuid = uuid!("e0c25aab-1d27-4f1f-b6a1-71b011000001");
 pub const COMMAND_CHAR_UUID: Uuid = uuid!("e0c25aab-1d27-4f1f-b6a1-71b011000002");
 pub const SLOTS_CHAR_UUID: Uuid = uuid!("e0c25aab-1d27-4f1f-b6a1-71b011000003");
 
-pub const SLOT_COUNT: usize = 16;
+// 30 = floor(512 / SLOT_ENTRY_LEN). 512 is the BT ATT max attribute value
+// length; raising SLOT_COUNT past 30 requires changing the slots GATT
+// characteristic layout (e.g. pagination), not just bumping this constant.
+pub const SLOT_COUNT: usize = 30;
 pub const LABEL_LEN: usize = 16;
 pub const KEY_MAX_LEN: usize = 64;
 pub const SLOT_ENTRY_LEN: usize = 1 + LABEL_LEN;
@@ -156,7 +159,7 @@ mod tests {
 
     #[test]
     fn slot_out_of_range_rejected() {
-        assert!(encode_delete_slot(16).is_err());
+        assert!(encode_delete_slot(SLOT_COUNT as u8).is_err());
     }
 
     #[test]

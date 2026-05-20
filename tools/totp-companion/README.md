@@ -2,7 +2,7 @@
 
 A small Rust CLI for provisioning TOTP slots on a Keyball39 keyboard over BLE.
 
-The keyboard stores up to 16 TOTP slots (key + 16-byte label) in its settings
+The keyboard stores up to 30 TOTP slots (key + 16-byte label) in its settings
 partition. This tool writes them, renames them, deletes them, and lists what's
 where. Keys are **write-only** — they can be written but never read back.
 
@@ -40,7 +40,7 @@ Every command implicitly pushes the current host time to the keyboard before
 doing anything else, so the keyboard's clock is re-synced on each invocation.
 
 ```sh
-# List the current state of all 16 slots
+# List the current state of all 30 slots
 keyball39-totp list
 
 # Provision a new key (slot 0, label "github", secret as base32)
@@ -84,7 +84,7 @@ slot  label
 
 | Thing | Limit | Why |
 |---|---|---|
-| Slots | 16 | Compile-time constant on the firmware side |
+| Slots | 30 | Compile-time constant on the firmware side; capped by the 512-byte BT ATT attribute limit (30 × 17 = 510) |
 | Label | 16 bytes UTF-8, no NUL | Fits one line on the OLED in UNSCII-8 |
 | Key | 1..64 bytes (after base32 decode) | HMAC-SHA1 block size; longer keys are pre-hashed to 20 bytes anyway |
 | TOTP variant | SHA-1, 6 digits, 30s period | v1 firmware only generates this |

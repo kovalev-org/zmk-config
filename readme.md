@@ -47,7 +47,7 @@ Specific to this fork:
   Print Screen on the far-right thumb — both restricted to the Base layer only
 - Custom OLED font selection tuned for LVGL 9 on 1-bit displays (mixes Montserrat
   for icons with UNSCII for the layer name)
-- **On-device TOTP authenticator**: 16 slots of HMAC-SHA1 TOTP keys stored in
+- **On-device TOTP authenticator**: 30 slots of HMAC-SHA1 TOTP keys stored in
   the right half's flash. Pressing `&totp <slot>` generates the current
   6-digit code, types it on the host, and flashes the slot's label on the
   OLED for ~3 s in place of the layer name (or `Time not set` / `Slot empty`
@@ -391,7 +391,7 @@ unreadable at the default Montserrat-12. The compromise:
 
 ## TOTP authenticator
 
-The right half stores up to **16 TOTP slots** (HMAC-SHA1, 6 digits, 30 s
+The right half stores up to **30 TOTP slots** (HMAC-SHA1, 6 digits, 30 s
 period — the RFC 6238 default that every authenticator app supports) in the
 same flash partition as BLE bonds, so slots survive reflashes the same way
 your pairings do. Pressing `&totp <slot>` generates the current code and
