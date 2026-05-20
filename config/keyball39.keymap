@@ -121,15 +121,8 @@
 };
 
 // TOTP layer index — comes after base.keymap's DEF/NAV/FN/NUM/SYS/MOUSE (0..5)
-// in declaration order, so this is 6. Must match the order ZMK_LAYER(Totp, ...)
+// in declaration order, so this is 6. Must match the order ZMK_LAYER(TOTP, ...)
 // is emitted below.
-//
-// Note: the *layer name* must be a token that's NOT the same as this macro,
-// otherwise `ZMK_BASE_LAYER(TOTP, ...)` would preprocessor-substitute TOTP→6
-// before ZMK_LAYER's `##` paste, producing `layer_6` with `display-name = "6"`.
-// Using mixed-case `Totp` for the layer name sidesteps that — `&mo TOTP` still
-// works because TOTP=6 is the activator macro, while `layer_Totp` /
-// `display-name = "Totp"` is what the OLED sees.
 #define TOTP 6
 
 // Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at position
@@ -194,7 +187,20 @@ ZMK_BASE_LAYER(Base,
           &none &none &none &none LH RH &none                                  \
     )
 
-ZMK_BASE_LAYER(Totp,
+// `#undef TOTP` before the layer definition so `ZMK_BASE_LAYER(TOTP, ...)`
+// does NOT preprocessor-substitute TOTP→6. Without this, ZMK_LAYER's
+// internal `##` paste produces `layer_6` with `display-name = "6"`. After
+// the undef, the layer-name token stays literal — yielding `layer_TOTP`
+// with the desired auto-generated `display-name = "TOTP"` (matches the
+// OLED, no DT override needed, no yaml-side label override needed for the
+// keymap-drawer SVG either). This dance is necessary because we want the
+// activator macro `&mo TOTP` to stay readable in the Base layer above (so
+// TOTP must be defined as 6 there), while the layer-name token here needs
+// to remain the literal string `TOTP`. The macro has done its job by this
+// point and is no longer referenced.
+#undef TOTP
+
+ZMK_BASE_LAYER(TOTP,
 //╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮ ╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮
     &totp 12      &totp 7       &totp 8       &totp 9       ___         ,   ___           ___           ___           ___           ___         ,
 //├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
@@ -205,15 +211,3 @@ ZMK_BASE_LAYER(Totp,
                                               ___           ___         ,   ___           ___
 //                                          ╰─────────────┴─────────────╯ ╰─────────────┴─────────────╯
 )
-
-// Override the auto-generated `display-name = "Totp"` (derived by stringifying
-// the layer-name token, which has to be mixed-case to avoid the `TOTP` macro
-// expansion described above). DT property merging lets us set the cosmetic
-// name to all-caps so the OLED shows "TOTP" when this layer is active.
-/ {
-    keymap {
-        layer_Totp {
-            display-name = "TOTP";
-        };
-    };
-};
