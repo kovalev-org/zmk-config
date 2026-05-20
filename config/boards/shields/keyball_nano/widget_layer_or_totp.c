@@ -56,13 +56,15 @@ static void render_all(void)
 
     k_mutex_lock(&state_mutex, K_FOREVER);
     mode = shared_mode;
+    /* No LV_SYMBOL_KEYBOARD prefix: UNSCII-8 has no PUA glyphs so it renders
+     * as a tofu rectangle, and dropping it recovers two character cells of
+     * OLED width (≈14 → 16 usable chars on this 128 px line). */
     if (mode == MODE_TOTP) {
-        snprintf(text, sizeof(text), LV_SYMBOL_KEYBOARD " %s", shared_totp_label);
+        snprintf(text, sizeof(text), "%s", shared_totp_label);
     } else if (shared_layer.name && shared_layer.name[0]) {
-        snprintf(text, sizeof(text), LV_SYMBOL_KEYBOARD " %s", shared_layer.name);
+        snprintf(text, sizeof(text), "%s", shared_layer.name);
     } else {
-        snprintf(text, sizeof(text), LV_SYMBOL_KEYBOARD " %u",
-                 (unsigned)shared_layer.index);
+        snprintf(text, sizeof(text), "%u", (unsigned)shared_layer.index);
     }
     k_mutex_unlock(&state_mutex);
 

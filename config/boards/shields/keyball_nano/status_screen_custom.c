@@ -61,8 +61,12 @@ lv_obj_t *zmk_display_status_screen(void) {
     zmk_widget_layer_or_totp_init(&layer_or_totp_widget, screen);
     lv_obj_set_style_text_font(zmk_widget_layer_or_totp_obj(&layer_or_totp_widget),
                                 lv_theme_get_font_small(screen), LV_PART_MAIN);
+    /* Anchor to BOTTOM_RIGHT so short text stays flush against the right edge
+     * and long text extends leftward. The OLED sits slightly below the case
+     * window so the left edge gets clipped — keeping text right-aligned avoids
+     * that clip. */
     lv_obj_align(zmk_widget_layer_or_totp_obj(&layer_or_totp_widget),
-                 LV_ALIGN_BOTTOM_LEFT, 0, 0);
+                 LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_WPM_STATUS)
     zmk_widget_wpm_status_init(&wpm_status_widget, screen);
