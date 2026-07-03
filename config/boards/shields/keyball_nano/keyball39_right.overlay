@@ -52,122 +52,84 @@
     pinctrl-names = "default", "sleep";
     cs-gpios = <&gpio0 9 GPIO_ACTIVE_LOW>;
 
+    // Community PMW3610 driver (mochukeeb/zmk-pmw3610-driver, pinned in
+    // config/west.yml) — the exact driver + settings used by the reference
+    // Keyball39 config whose trackball tracks correctly. All sensor tuning
+    // (CPI, CPI divisor, orientation, smart algorithm, polling rate,
+    // downshift/rest timings, scroll direction) lives in keyball39_right.conf
+    // as CONFIG_PMW3610_* — this driver takes its knobs from Kconfig, not DT
+    // properties (the native pixart,pmw3610 driver was the opposite). The
+    // hardware wiring (SPI pins, CS on gpio0 9, motion IRQ on gpio1 11) is
+    // identical to the native-driver setup; only the `compatible` and the
+    // IRQ property name (`irq-gpios`, not `motion-gpios`) differ.
     trackball: trackball@0 {
         status = "okay";
-        compatible = "pixart,pmw3610";
+        compatible = "zmk,pmw3610";
         reg = <0>;
         spi-max-frequency = <2000000>;
-        // Motion IRQ pin (was `irq-gpios` in the kumamuk-git fork; upstream
-        // Zephyr's pixart,pmw3610 binding calls it motion-gpios).
-        motion-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-        // Required by upstream binding: map sensor axes to input events.
-        // Sensor is mounted rotated 90° relative to user view (sensor +X points
-        // "user up", sensor +Y points "user right"), so cross-wire the axes
-        // and invert the X mapping. Original kumamuk-git config used
-        // CONFIG_PMW3610_ORIENTATION_180=y which did *both* axes but did not
-        // also swap — translation to the upstream binding ends up here.
-        zephyr,axis-x = <INPUT_REL_Y>;
-        zephyr,axis-y = <INPUT_REL_X>;
-        invert-x;
-        // CPI bumped from 1200 → 2000. PMW3610 supports 200..3200 in steps
-        // of 200. Higher CPI = more counts per unit physical motion, which
-        // smooths slow-speed tracking (less aggressive integer rounding by
-        // the sensor's internal accumulator).
-        res-cpi = <2000>;
-        // smart-mode (PixArt's surface-coverage algorithm) is deliberately
-        // omitted. It throttles sampling when the shutter value drops below
-        // 45, which the datasheet describes for low-contrast surfaces like
-        // granite or tile. On a uniform trackball ball the threshold flips
-        // back and forth as you roll and produces visible skipping; disabling
-        // it gives consistent sampling at the cost of slightly more power.
-        //
-        // force-awake keeps the sensor at its full sample rate while ZMK is
-        // ACTIVE instead of letting it drop into rest1/rest2 modes during
-        // brief pauses — eliminates first-motion latency after a pause.
-        force-awake;
+        irq-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        // Scroll on the Nav layer (index 1): while LH1 (&lt_spc NAV 0) is held
+        // the driver emits wheel events instead of cursor motion, so rolling
+        // the ball scrolls. Matches the pre-existing scroll-on-Nav behavior.
+        // (No `snipe-layers`/`arrows` — those map to layers the reference
+        // keymap has but this one doesn't. No `automouse-layer` — auto-mouse
+        // is handled by &zip_temp_layer in the listener below; see west.yml
+        // for why the driver's built-in automouse can't compile on ZMK main.)
+        scroll-layers = <1>;
     };
 };
 
-// Each &mkp press (LCLK/MCLK/RCLK on the Mouse layer) is also routed
-// through ZMK's built-in `mkp_input_listener`. Attaching `zip_temp_layer`
-// here re-arms the Mouse layer's deactivation timer to 500 ms on every
-// click — so the Mouse layer:
-//   - is kept alive long enough for a multi-click (double-/triple-click)
-//     because each press reschedules the timer to 500 ms again;
-//   - deactivates 500 ms after the last click of a click sequence, which
-//     feels effectively immediate to the user but still fits inside
-//     standard OS double-click detection windows (250–500 ms).
-//
-// `zip_temp_layer`'s disable work is keyed on the layer index, and each
-// `temp_layer_handle_event` call calls `k_work_reschedule(...)` — so the
-// trackball's 3000 ms schedule and this 500 ms schedule don't conflict;
-// whichever path fires latest sets the next deactivation time.
+// Each &mkp press (LCLK/MCLK/RCLK on the Mouse layer) re-arms the Mouse
+// layer's deactivation timer to 500 ms, so a multi-click (double-/triple-
+// click) keeps the layer alive and it deactivates 500 ms after the last
+// click — comfortably inside the OS double-click window (250–500 ms).
+// `zip_temp_layer` keys its disable work on the layer index and reschedules
+// on each event, so this 500 ms schedule and the trackball listener's
+// 3000 ms one below don't conflict; whichever fires latest wins.
 &mkp_input_listener {
     input-processors = <&zip_temp_layer 5 500>;
 };
 
 / {
-    // Custom WHEEL-only scaler so we can negate vertical scroll (only) without
-    // also touching horizontal. Upstream ships zip_scroll_scaler which operates
-    // on both WHEEL and HWHEEL — we use that for the symmetric half-speed step
-    // and this one for the asymmetric Y-inversion step.
-    zip_wheel_scaler: zip_wheel_scaler {
+    // This unit's trackball reports ~3x fewer counts vertically (REL_Y) than
+    // horizontally, so with the driver's symmetric CPI_DIVIDOR the vertical
+    // cursor came out ~3x too slow while horizontal felt right. Boost REL_Y
+    // by 3x to rebalance. This scaler ONLY touches REL_Y, so horizontal (REL_X)
+    // and scroll (REL_WHEEL/HWHEEL) are untouched. track-remainders preserves
+    // fractional counts, so if 3x is retuned to a non-integer ratio later
+    // (e.g. <5 2> = 2.5x) slow vertical motion still won't round away.
+    zip_y_boost: zip_y_boost {
         compatible = "zmk,input-processor-scaler";
         #input-processor-cells = <2>;
         type = <INPUT_EV_REL>;
-        codes = <INPUT_REL_WHEEL>;
-        track-remainders;
-    };
-
-    // Custom cursor scaler covering both REL_X and REL_Y. The predefined
-    // &zip_xy_scaler doesn't enable track-remainders, so a divisor != 1 would
-    // discard every fractional count — exactly the "skipping at slow speeds"
-    // failure mode we're trying to avoid. With track-remainders the dropped
-    // fraction is carried forward and added to the next event.
-    zip_xy_cursor_scaler: zip_xy_cursor_scaler {
-        compatible = "zmk,input-processor-scaler";
-        #input-processor-cells = <2>;
-        type = <INPUT_EV_REL>;
-        codes = <INPUT_REL_X INPUT_REL_Y>;
+        codes = <INPUT_REL_Y>;
         track-remainders;
     };
 
     trackball_listener: trackball_listener {
         compatible = "zmk,input-listener";
         device = <&trackball>;
-        // Auto-mouse: every trackball motion event activates the Mouse layer
-        // (layer index 5 in base.keymap — `#define MOUSE 5`) for 3000 ms.
-        // The Mouse layer's thumb bindings turn the LH0/RH0/RH1 keys into
-        // mouse buttons; the layer auto-deactivates 3 s after the last motion
-        // (or 500 ms after the last click — see &mkp_input_listener above).
-        //
-        // The cursor scaler (1/2) sits after the layer activator so the
-        // activator sees the raw, unscaled motion stream — micro-motions that
-        // would scale to zero still keep the Mouse layer alive.
-        input-processors = <
-            &zip_temp_layer 5 3000
-            &zip_xy_cursor_scaler 1 2
-        >;
+        // Auto-mouse: any cursor-motion event (REL_X/REL_Y — the community
+        // driver emits these in its default MOVE mode) activates the Mouse
+        // layer (index 5) for 3000 ms, turning the right-hand/thumb keys into
+        // mouse buttons after you touch the ball. Auto-deactivates 3 s after
+        // the last motion (or 500 ms after the last click, via
+        // &mkp_input_listener above). The driver sets overall speed internally
+        // (CONFIG_PMW3610_CPI 1200 ÷ CONFIG_PMW3610_CPI_DIVIDOR 4 ≈ 300
+        // effective CPI); &zip_y_boost only rebalances the vertical axis.
+        input-processors = <&zip_temp_layer 5 3000 &zip_y_boost 3 1>;
 
-        // Scroll mode: while the Nav layer (index 1, `#define NAV 1`) is
-        // active — i.e. while LH1 / `&lt_spc NAV 0` is held — the trackball's
-        // X/Y events are remapped to horizontal/vertical wheel events
-        // instead of cursor movement, so rolling the ball scrolls.
-        // process-next is omitted (default false), so this REPLACES the
-        // default auto-mouse chain on this layer — Mouse layer doesn't
-        // also activate while you're scrolling.
+        // Nav layer (index 1) = scroll. The sensor node already remaps motion
+        // to wheel events on this layer (scroll-layers = <1>), so this override
+        // REPLACES the auto-mouse chain with nothing: an empty processor list
+        // plus process-next defaulting to false means the base chain is skipped
+        // (see input_listener.c:filter_with_input_config — a matched override
+        // returns before apply_config(base)). Without it the wheel events would
+        // trip &zip_temp_layer, flip on the Mouse layer, and the driver —
+        // seeing Mouse (5) as the highest active layer rather than Nav (1) —
+        // would revert to cursor mode mid-scroll.
         scroll {
             layers = <1>;
-            // Chain: (1) remap X/Y to HWHEEL/WHEEL,
-            //        (2) divide both axes by 5 for a comfortable scroll speed,
-            //        (3) negate WHEEL only (vertical) to get natural-direction
-            //            scrolling without affecting horizontal.
-            // The cell <-1 1> on zip_wheel_scaler multiplies WHEEL by -1.
-            input-processors = <
-                &zip_xy_to_scroll_mapper
-                &zip_scroll_scaler 1 5
-                &zip_wheel_scaler (-1) 1
-            >;
         };
     };
 };

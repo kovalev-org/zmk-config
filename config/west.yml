@@ -28,6 +28,8 @@ manifest:
       url-base: https://github.com/zmkfirmware
     - name: zephyrproject-rtos
       url-base: https://github.com/zephyrproject-rtos
+    - name: mochukeeb
+      url-base: https://github.com/mochukeeb
 
   projects:
     - name: zmk
@@ -62,6 +64,22 @@ manifest:
     - name: zmk-unicode
       path: modules/zmk/unicode
       revision: 1a6dbc797a46c4a61c3c71a7a9d013a5d5aee49e # main (4/19/2026)
+
+    # Community PMW3610 trackball driver (ufan → inorichi → mochukeeb lineage),
+    # the exact driver used by kristijanribaric/zmk-config-Keyball39 whose
+    # trackball tracks correctly. Replaces Zephyr 4.1's native pixart,pmw3610
+    # driver — see keyball39_right.overlay/.conf. It uses the modern
+    # input_report_rel + zmk,input-listener architecture, so it builds against
+    # ZMK main UNMODIFIED, provided we do NOT set `automouse-layer` on the DT
+    # node: that feature calls the pre-2-arg zmk_keymap_layer_activate() which
+    # no longer matches ZMK main's `(layer, bool locking)` signature. We keep
+    # auto-mouse via `&zip_temp_layer` in the input listener instead, so that
+    # code path is #if'd out and never compiled. Pinned to current main (single
+    # commit as of 2026-06-30) for reproducibility.
+    - name: zmk-pmw3610-driver
+      remote: mochukeeb
+      path: modules/zmk/pmw3610-driver
+      revision: 77a61804cf0d51a495a22e60d1a3115568a441df
 
     # Only source necessary Zephyr modules. Remove this entire section to restore
     # the default (needed for less common hardware).
