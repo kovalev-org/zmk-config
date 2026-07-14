@@ -120,14 +120,31 @@
     };
 };
 
+// Macro bound to position 33 (LH2, the key immediately left of the Nav thumb
+// at LH1). Wraps the clipboard contents in a Markdown fenced code block for an
+// AI-agent chat box where Ctrl+J inserts a newline (plain Enter submits):
+//   Ctrl+J → ``` → Ctrl+V (paste) → ``` → Ctrl+J
+// Ctrl+J is ASCII LF, the universal terminal newline. GRAVE is the unshifted
+// backtick; three in a row form the ``` fence.
+ZMK_MACRO(codeblock_paste,
+    wait-ms = <5>;
+    tap-ms = <5>;
+    bindings = <&kp LC(J)
+                &kp GRAVE &kp GRAVE &kp GRAVE
+                &kp LC(V)
+                &kp GRAVE &kp GRAVE &kp GRAVE
+                &kp LC(J)>;
+)
+
 // TOTP layer index — comes after base.keymap's DEF/NAV/FN/NUM/SYS/MOUSE (0..5)
 // in declaration order, so this is 6. Must match the order ZMK_LAYER(TOTP, ...)
 // is emitted below.
 #define TOTP 6
 
 // Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at position
-// 30 (LH5) and `&mo TOTP` at position 31 (LH4 — the key immediately right of
-// the Sys activator), plus `&kp PSCRN` at position 38. Non-Base layers
+// 30 (LH5), `&mo TOTP` at position 31 (LH4 — the key immediately right of the
+// Sys activator), `&codeblock_paste` at position 33 (LH2 — the key immediately
+// left of the Nav thumb), plus `&kp PSCRN` at position 38. Non-Base layers
 // (Nav/Fn/Num/Sys/Mouse/TOTP) keep the &none from the earlier definition.
 // DT property merging means this second `layer_Base { bindings = <...>; }`
 // overrides the Colemak Base from base.keymap.
@@ -138,7 +155,7 @@
                  LT RT                                                         \
                  LM RM                                                         \
                  LB RB                                                         \
-          &mo SYS &mo TOTP &none &none LH RH &kp PSCRN                         \
+          &mo SYS &mo TOTP &none &codeblock_paste LH RH &kp PSCRN             \
     )
 
 // moving back to QWERTY
