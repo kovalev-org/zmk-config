@@ -1,3 +1,16 @@
+# Normalise all text files to LF in the repo and in the working tree. This
+# checkout has lived on a Windows host, which rewrote a number of files
+# (readme.md, flake.nix, nix/*.nix, draw/config.yaml, ...) to CRLF and made
+# them show up as fully-rewritten in `git diff`. `eol=lf` keeps the working
+# tree LF everywhere, on every platform, so that can't recur.
+* text=auto eol=lf
+
 # Highlight keymap files as C++, which is better than nothing.
 *.dtsi text linguist-language=C++
 *.keymap text linguist-language=C++
+
+# Never touch binaries.
+*.uf2 binary
+*.bin binary
+*.hex binary
+*.svg text eol=lf
