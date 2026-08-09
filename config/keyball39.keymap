@@ -166,15 +166,17 @@ ZMK_MACRO(codeblock_paste,
                 &kp LS(ENTER) &kp LS(ENTER)>;
 )
 
-// TOTP layer index — comes after base.keymap's DEF/NAV/FN/NUM/SYS/MOUSE (0..5)
-// in declaration order, so this is 6. Must match the order ZMK_LAYER(TOTP, ...)
-// is emitted below.
-#define TOTP 6
+// TOTP layer index — comes after base.keymap's
+// DEF/PLAIN/NAV/FN/NUM/SYS/MOUSE (0..6) in declaration order, so this is 7.
+// Must match the order ZMK_LAYER(TOTP, ...) is emitted below.
+#define TOTP 7
 
 // Redefine ZMK_BASE_LAYER so the Base layer below gets `&mo SYS` at position
 // 30 (LH5), `&mo TOTP` at position 31 (LH4 — the key immediately right of the
-// Sys activator), `&codeblock_paste` at position 33 (LH2 — the key immediately
-// left of the Nav thumb), plus `&kp PSCRN` at position 38. Non-Base layers
+// Sys activator), `&tog PLAIN` at position 32 (LH3 — right of the TOTP
+// activator; this was the one unassigned key on the board),
+// `&codeblock_paste` at position 33 (LH2 — the key immediately left of the Nav
+// thumb), plus `&kp PSCRN` at position 38. Non-Base layers
 // (Nav/Fn/Num/Sys/Mouse/TOTP) keep the &none from the earlier definition.
 // DT property merging means this second `layer_Base { bindings = <...>; }`
 // overrides the Colemak Base from base.keymap.
@@ -185,7 +187,7 @@ ZMK_MACRO(codeblock_paste,
                  LT RT                                                         \
                  LM RM                                                         \
                  LB RB                                                         \
-          &mo SYS &mo TOTP &none &codeblock_paste LH RH &kp PSCRN             \
+          &mo SYS &mo TOTP &tog PLAIN &codeblock_paste LH RH &kp PSCRN        \
     )
 
 // moving back to QWERTY
@@ -203,6 +205,42 @@ ZMK_BASE_LAYER(Base,
 
 // return single quote that was erased by letter P
 // ZMK_COMBO(sqt,  &kp SQT,     RT3 RT4,         DEF    , COMBO_TERM_FAST, COMBO_IDLE_FAST)
+
+// Plain layer (index 1) — homerow mods off. base.keymap already emitted this
+// layer with the Colemak homerow; re-emit it here with the QWERTY letters so
+// the plain taps match this fork's Base layer. DT property merging replaces the
+// `bindings` property wholesale, exactly like the Base override above.
+//
+// Toggled by `&tog PLAIN` at position 32. Every non-homerow key is `___`
+// (&trans) so Base shows through — crucially including position 32 itself, or
+// the layer could never be switched back off, and the thumb cluster, so layer
+// access still works while Plain is on.
+//
+// Note this needs its OWN macro variant: the Base variant above would put
+// `&mo SYS`/`&tog PLAIN`/`&codeblock_paste`/`&kp PSCRN` here (harmless but
+// redundant), while the non-Base variant further down would put `&none` at
+// those positions — which would dead-key the toggle and trap you on Plain.
+#undef ZMK_BASE_LAYER
+#define ZMK_BASE_LAYER(name, LT, RT, LM, RM, LB, RB, LH, RH)                   \
+    ZMK_LAYER(                                                                 \
+        name,                                                                  \
+                 LT RT                                                         \
+                 LM RM                                                         \
+                 LB RB                                                         \
+          ___ ___ ___ ___ LH RH ___                                            \
+    )
+
+ZMK_BASE_LAYER(Plain,
+//╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮ ╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮
+    ___           ___           ___           ___           ___         ,   ___           ___           ___           ___           ___         ,
+//├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+    &kp A         &kp S         &kp D         &kp F         ___         ,   ___           &kp J         &kp K         &kp L         &kp SQT     ,
+//├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+    ___           ___           ___           ___           ___         ,   ___           ___           ___           ___           ___         ,
+//╰─────────────┼─────────────┴─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┴───────────────────────────╯
+                                              ___           ___         ,   ___           ___
+//                                          ╰─────────────┴─────────────╯ ╰─────────────┴─────────────╯
+)
 
 // TOTP layer: mirrors the Fn layer's F-key positions on the left half so the
 // muscle memory is "same finger position as F<N>, but on TOTP layer". Activated

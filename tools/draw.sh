@@ -57,8 +57,8 @@ kd -c draw/config.yaml parse -z config/keyball39.keymap \
 #      and it falls back to layer 0. Forcing the string "TOTP" also restores
 #      the <a href="#TOTP"> hyperlink and layer-activator class for free.
 #
-# The explicit layer dict also fixes the render order (Base, Combos, Num, Fn,
-# TOTP, Sys, Nav, Mouse).
+# The explicit layer dict also fixes the render order (Base, Plain, Combos, Num,
+# Fn, TOTP, Sys, Nav, Mouse).
 #
 # If you move &mo SYS / &mo TOTP, re-swap the right thumbs, change the matrix
 # or rename the TOTP layer, update these indices to match.
@@ -70,6 +70,7 @@ cat >"$tmp/patch.jq" <<'JQ'
   "combos": .combos,
   "layers": {
     "Base":   .layers.Base,
+    "Plain":  .layers.Plain,
     "Combos": .layers.Combos,
     "Num":    .layers.Num,
     "Fn":     .layers.Fn,
@@ -92,7 +93,7 @@ JQ
 
 # Fail loudly if a layer went missing (renamed layer, failed parse) rather than
 # silently emitting an SVG full of nulls.
-for layer in Base Combos Num Fn TOTP Sys Nav Mouse; do
+for layer in Base Plain Combos Num Fn TOTP Sys Nav Mouse; do
     yq_ -e ".layers.$layer | length > 0" draw/keyball39.yaml >/dev/null 2>&1 || {
         echo "error: layer '$layer' missing or empty in the parsed keymap." >&2
         echo "       did a layer get renamed? update tools/draw.sh." >&2
@@ -145,9 +146,12 @@ yq_ -y --from-file "$tmp/overview.jq" draw/keyball39.yaml >draw/overview.yaml
 # the corner overlay text uses the BRIGHT shade from --color-{nav,fn,num,sys}
 # in draw/config.yaml. Retune both in lockstep to keep the hue identity.
 #
-#   pos 30 LH5  Sys   fuchsia-600   pos 35 LH0  Fn   lime-700
-#   pos 31 LH4  TOTP  rose-600      pos 37 RH1  Num  orange-600
-#                                   pos 34 LH1  Nav  cyan-600
+#   pos 30 LH5  Sys    fuchsia-600   pos 35 LH0  Fn    lime-700
+#   pos 31 LH4  TOTP   rose-600      pos 37 RH1  Num   orange-600
+#   pos 32 LH3  Plain  indigo-600    pos 34 LH1  Nav   cyan-600
+#
+# Plain (the &tog HRM-off toggle) gets indigo — the widest free gap in the
+# existing palette, which clusters around cyan/lime and fuchsia/rose.
 # ---------------------------------------------------------------------------
 echo "--- drawing draw/overview.svg"
 cat >"$tmp/style.jq" <<'JQ'
@@ -155,6 +159,7 @@ cat >"$tmp/style.jq" <<'JQ'
 | .draw_config.svg_extra_style += "
 .layer-Base .keypos-30 rect.key { fill: #c026d3; }
 .layer-Base .keypos-31 rect.key { fill: #e11d48; }
+.layer-Base .keypos-32 rect.key { fill: #4f46e5; }
 .layer-Base .keypos-34 rect.key { fill: #0891b2; }
 .layer-Base .keypos-35 rect.key { fill: #4d7c0f; }
 .layer-Base .keypos-37 rect.key { fill: #ea580c; }

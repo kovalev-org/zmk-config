@@ -46,6 +46,9 @@ Specific to this fork:
   500 ms later, so double-/triple-click still lands cleanly
 - Dedicated **Sys layer activator** on the leftmost left thumb (`&mo SYS`), plus
   Print Screen on the far-right thumb — both restricted to the Base layer only
+- **[Homerow-mods off toggle](#turning-the-homerow-mods-off)** (`&tog PLAIN` on
+  LH3) for fast prose, games and remote desktops — the OLED shows "Plain" while
+  it's on
 - Custom OLED font selection tuned for LVGL 9 on 1-bit displays (mixes Montserrat
   for icons with UNSCII for the layer name)
 - **On-device TOTP authenticator**: 30 slots of HMAC-SHA1 TOTP keys stored in
@@ -344,6 +347,8 @@ board would be combos or homerow:
 | LH0 (innermost left thumb) | `&lt FN RET`        | hold = Fn, tap = Return                     |
 | LH1         | `&lt_spc NAV 0`     | hold = Nav, tap = Space with shifted morph  |
 | LH2         | `&codeblock_paste`  | wrap clipboard in a ``` fence, **Base only** |
+| LH3         | `&tog PLAIN`        | toggle homerow mods off, **Base only**      |
+| LH4         | `&mo TOTP`          | hold = TOTP layer                           |
 | LH5 (leftmost left thumb)  | `&mo SYS`           | hold = Sys (Bluetooth / bootloader / reset) |
 | RH0         | `&magic_shift …`    | upstream's Magic Repeat/Shift/Capsword      |
 | RH1         | `&smart_num NUM 0`  | hold = Num, tap = Smart-Num (sticky digit)  |
@@ -366,6 +371,49 @@ is to strip that conditional from the final devicetree:
 `/delete-node/` after `#include "base.keymap"` is reliable; a `#define
 ZMK_CONDITIONAL_LAYER` before the include doesn't work because base.keymap
 re-includes the helper macro itself.
+
+### Turning the homerow mods off
+
+Homerow mods are excellent until they aren't — fast prose, a game holding WASD,
+or a remote-desktop client that mishandles a held modifier. `&tog PLAIN` on LH3
+toggles a **Plain** layer that rebinds just the eight homerow keys to ordinary
+taps. The OLED shows "Plain" while it's active, so there's no guessing.
+
+The layer's *index* is the whole design:
+
+```
+DEF 0   PLAIN 1   NAV 2   FN 3   NUM 4   SYS 5   MOUSE 6   TOTP 7
+```
+
+Plain has to outrank Base (so it wins over the `&hml`/`&hmr` bindings) but lose
+to every momentary layer — because Nav, Fn and Num all bind the homerow
+themselves, with arrows, F-keys and numbers. A "plain" layer sitting at the top
+of the stack would shadow all of those. That's why it went in at index 1 and
+everything else shifted up, rather than simply being appended.
+
+Everything on Plain except the homerow is `&trans`, which matters most for LH3
+itself: bind that to `&none` and you could never toggle back off.
+
+<details>
+<summary>Why not triple-tap Magic Shift?</summary>
+
+That was the first idea, and `ZMK_TAP_DANCE` is available, so it looks
+straightforward. It isn't — `magic_shift`'s tap side is an adaptive-key plus
+mod-morph chain where **each tap fires immediately and conditions the next
+one**: tap 1 emits `&sk LSHFT`, and tap 2 sees that sticky shift through the
+mod-morph and becomes `&caps_word`; after a letter, taps chain into
+`&key_repeat` instead.
+
+A tap-dance works by suppressing taps 1..N-1 until the sequence resolves, which
+destroys precisely that chaining. Double-tap would stop producing caps-word
+contextually, and tapping repeatedly would stop repeating the letter.
+
+Latency, interestingly, is *not* the problem — ZMK's tap-dance fires early as
+soon as another key is pressed (`behavior_tap_dance.c:233`), so normal typing
+wouldn't slow down. The blocker is purely the interaction with the existing
+behavior, so the toggle went on a dedicated key instead.
+
+</details>
 
 ### Restricting bindings to Base only
 

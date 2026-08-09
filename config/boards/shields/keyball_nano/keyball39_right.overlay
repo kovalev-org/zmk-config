@@ -10,6 +10,23 @@
 
 #include "keyball39.dtsi"
 
+/*
+ * !! LAYER INDICES ARE HARD-CODED IN THIS FILE !!
+ *
+ * `scroll-layers`, `layers` and `&zip_temp_layer` below take raw layer numbers.
+ * This overlay is not preprocessed together with the keymap, so the readable
+ * NAV / MOUSE macros from config/base.keymap are NOT available here.
+ *
+ * Current mapping (see the #define block at the top of config/base.keymap):
+ *     DEF 0   PLAIN 1   NAV 2   FN 3   NUM 4   SYS 5   MOUSE 6   TOTP 7
+ *
+ * The numbers used here are NAV = 2 and MOUSE = 6. If a layer is ever added,
+ * removed or reordered, these do NOT break the build -- they silently point at
+ * the wrong layer. Symptoms: rolling the ball scrolls on the wrong layer, or
+ * auto-mouse activates something other than the Mouse layer. Grep this file
+ * for numeric layer values whenever the keymap's layer list changes.
+ */
+
 &default_transform {
     col-offset = <6>;
 };
@@ -68,14 +85,14 @@
         reg = <0>;
         spi-max-frequency = <2000000>;
         irq-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-        // Scroll on the Nav layer (index 1): while LH1 (&lt_spc NAV 0) is held
+        // Scroll on the Nav layer (index 2): while LH1 (&lt_spc NAV 0) is held
         // the driver emits wheel events instead of cursor motion, so rolling
         // the ball scrolls. Matches the pre-existing scroll-on-Nav behavior.
         // (No `snipe-layers`/`arrows` — those map to layers the reference
         // keymap has but this one doesn't. No `automouse-layer` — auto-mouse
         // is handled by &zip_temp_layer in the listener below; see west.yml
         // for why the driver's built-in automouse can't compile on ZMK main.)
-        scroll-layers = <1>;
+        scroll-layers = <2>;
     };
 };
 
@@ -87,7 +104,7 @@
 // on each event, so this 500 ms schedule and the trackball listener's
 // 3000 ms one below don't conflict; whichever fires latest wins.
 &mkp_input_listener {
-    input-processors = <&zip_temp_layer 5 500>;
+    input-processors = <&zip_temp_layer 6 500>;
 };
 
 / {
@@ -111,25 +128,25 @@
         device = <&trackball>;
         // Auto-mouse: any cursor-motion event (REL_X/REL_Y — the community
         // driver emits these in its default MOVE mode) activates the Mouse
-        // layer (index 5) for 3000 ms, turning the right-hand/thumb keys into
+        // layer (index 6) for 3000 ms, turning the right-hand/thumb keys into
         // mouse buttons after you touch the ball. Auto-deactivates 3 s after
         // the last motion (or 500 ms after the last click, via
         // &mkp_input_listener above). The driver sets overall speed internally
         // (CONFIG_PMW3610_CPI 1200 ÷ CONFIG_PMW3610_CPI_DIVIDOR 4 ≈ 300
         // effective CPI); &zip_y_boost only rebalances the vertical axis.
-        input-processors = <&zip_temp_layer 5 3000 &zip_y_boost 3 1>;
+        input-processors = <&zip_temp_layer 6 3000 &zip_y_boost 3 1>;
 
-        // Nav layer (index 1) = scroll. The sensor node already remaps motion
-        // to wheel events on this layer (scroll-layers = <1>), so this override
+        // Nav layer (index 2) = scroll. The sensor node already remaps motion
+        // to wheel events on this layer (scroll-layers = <2>), so this override
         // REPLACES the auto-mouse chain with nothing: an empty processor list
         // plus process-next defaulting to false means the base chain is skipped
         // (see input_listener.c:filter_with_input_config — a matched override
         // returns before apply_config(base)). Without it the wheel events would
         // trip &zip_temp_layer, flip on the Mouse layer, and the driver —
-        // seeing Mouse (5) as the highest active layer rather than Nav (1) —
+        // seeing Mouse (6) as the highest active layer rather than Nav (2) —
         // would revert to cursor mode mid-scroll.
         scroll {
-            layers = <1>;
+            layers = <2>;
         };
     };
 };

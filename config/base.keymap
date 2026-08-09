@@ -12,12 +12,20 @@
   #define _BT_SEL_KEYS_ &trans &trans &trans &trans &trans
 #endif
 
+// Layer indices MUST match the order the layers are emitted below, because ZMK
+// derives a layer's index from its position among the `keymap` node's children.
+//
+// PLAIN sits at 1 -- deliberately between DEF and the momentary layers. It is a
+// patch over Base that turns the homerow mods into plain taps, so it has to
+// outrank DEF; but Nav/Fn/Num all bind the homerow themselves (arrows, F-keys,
+// numbers), so it must lose to every momentary layer or it would shadow them.
 #define DEF 0
-#define NAV 1
-#define FN 2
-#define NUM 3
-#define SYS 4
-#define MOUSE 5
+#define PLAIN 1
+#define NAV 2
+#define FN 3
+#define NUM 4
+#define SYS 5
+#define MOUSE 6
 
 #define XXX &none
 #define ___ &trans
@@ -198,6 +206,29 @@ ZMK_BASE_LAYER(Base,
     &kp Z         &kp X         &kp C         &kp D         &kp V       ,   &kp K         &kp H         &comma_morph  &dot_morph    &qexcl      ,
 //╰─────────────┼─────────────┴─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┴───────────────────────────╯
                                               &lt_spc NAV 0 &lt FN RET  ,   SMART_NUM     MAGIC_SHIFT
+//                                          ╰─────────────┴─────────────╯ ╰─────────────┴─────────────╯
+)
+
+// Homerow mods off. A thin patch over Base: only the eight homerow keys are
+// bound (to plain taps), everything else is `&trans` so the rest of Base shows
+// through untouched -- including the thumb cluster, so layer access and the
+// toggle key itself keep working while this layer is on.
+//
+// Toggled with `&tog PLAIN`. Useful when HRMs get in the way: fast prose,
+// games that hold WASD, or remote-desktop/VM clients that mishandle a held
+// modifier. Because it is a real layer, the OLED shows "Plain" while it is
+// active, which is the reminder that mods are off.
+//
+// MUST be emitted immediately after Base -- see the layer-index defines above.
+ZMK_BASE_LAYER(Plain,
+//╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮ ╭─────────────┬─────────────┬─────────────┬─────────────┬─────────────╮
+    ___           ___           ___           ___           ___         ,   ___           ___           ___           ___           ___         ,
+//├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+    &kp A         &kp R         &kp S         &kp T         ___         ,   ___           &kp N         &kp E         &kp I         &kp O       ,
+//├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+    ___           ___           ___           ___           ___         ,   ___           ___           ___           ___           ___         ,
+//╰─────────────┼─────────────┴─────────────┼─────────────┼─────────────┤ ├─────────────┼─────────────┼─────────────┴───────────────────────────╯
+                                              ___           ___         ,   ___           ___
 //                                          ╰─────────────┴─────────────╯ ╰─────────────┴─────────────╯
 )
 
