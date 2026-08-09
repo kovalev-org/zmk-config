@@ -12,9 +12,10 @@ re-used here for the alphas, navigation, function, num and mouse layers) extende
 with the extra Keyball39-specific hardware and bindings.
 
 The configuration tracks upstream ZMK `main` and Zephyr `v4.1.0+zmk-fixes`, pinned
-to specific commits in the [`west` manifest](config/west.yml). The base build
-toolchain is the Nix + `direnv` + `just` workflow inherited from upstream; on
-Windows I build via Docker (see [Local build environment](#local-build-environment)).
+to specific commits in the [`west` manifest](config/west.yml). I build it on Linux
+in a rootless podman container with no toolchain installed on the host; upstream's
+Nix + `direnv` + `just` workflow is also still supported (see
+[Local build environment](#local-build-environment)).
 
 ## Highlights
 
@@ -407,7 +408,9 @@ types it on the host as 6 keystrokes.
 [`tools/totp-companion/`](tools/totp-companion/). It connects to the right
 half by OS-paired BLE name (default `Keyball39`), pushes current host time,
 and reads/writes the slot table. See that directory's README for full usage,
-the wire protocol, and security caveats. Example:
+the wire protocol, and security caveats. No binary is shipped — build it once
+with `cargo build --release` (on Linux this needs `libdbus`, which `bluest`
+uses to talk to BlueZ) and the result is standalone. Example:
 
 ```sh
 keyball39-totp list                                    # show current slots
@@ -461,20 +464,127 @@ side: even a bonded host can't read them back out.
 
 ## Local build environment
 
-Upstream's local build process uses `nix`, `direnv` and `just`. This
-automatically sets up a virtual development environment with `west`, the
-`zephyr-sdk` and all its dependencies when `cd`-ing into the ZMK-workspace. The
-environment is _completely isolated_ and won't pollute your system.
+I build this on Linux in a **rootless podman container**, with nothing
+toolchain-related installed on the host. Upstream's Nix + `direnv` + `just`
+setup is still in the repo and still works if you prefer it — see
+[The upstream Nix workflow](#the-upstream-nix-workflow) below.
 
-> **Note (Windows)**: the Nix flake doesn't run natively on Windows. On my
-> Windows host I build inside a long-lived Docker container
-> (`zmkfirmware/zmk-build-arm:stable`) with a persistent ccache, instead of
-> running the Nix shell. Both halves produce the same `firmware/*.uf2` files
-> either way.
+### Quick start (podman / docker)
 
-### Setup
+The only host requirement is `podman` (or `docker`).
 
-#### Pre-requisites
+```bash
+git clone https://github.com/kovalev-org/zmk-config keyball39
+cd keyball39
+
+./tools/west-init.sh    # fetch ZMK, Zephyr and modules into the workspace
+./tools/build.sh        # build both halves
+```
+
+Firmware lands in `firmware/keyball39_{left,right}-nice_nano_v2.uf2`.
+
+`tools/build.sh` bind-mounts the repo into `zmkfirmware/zmk-build-arm:stable`
+(Zephyr SDK 0.16.9, Zephyr 4.1, west, CMake, Ninja, ccache) and re-executes
+itself inside the container, so there is exactly one copy of the build logic.
+`.build/` and `.ccache/` are plain directories in the repo, readable from the
+host.
+
+```bash
+./tools/build.sh              # every target in build.yaml
+./tools/build.sh right        # only targets matching "right"
+./tools/build.sh -p           # pristine: wipe build dir, full reconfigure
+./tools/build.sh -- -DFOO=1   # extra args passed through to `west build`
+```
+
+It picks incremental vs. full configure automatically: re-passing
+`-b`/`-S`/`-D…` to an existing build directory forces a full CMake reconfigure
+even when nothing changed, which is by far the slowest phase, so it points at
+the existing build dir instead.
+
+Reach for `-p` when you change `west.yml` module revisions, cross a Zephyr major
+version, or change the snippet list (snippet changes are silently ignored
+without it).
+
+**Timings on a 32-core machine:**
+
+| Operation | Wall clock |
+| --- | --- |
+| No-op rebuild, both halves | ~2.4 s |
+| Keymap edit → right half | ~8.6 s |
+| Pristine full build, both halves | ~22 s |
+
+Builds are reproducible — rebuilding the same tree pristine gives a
+byte-identical `.uf2`.
+
+<details>
+<summary>Why rootless podman specifically</summary>
+
+Rootless podman maps host uid 1000 → container uid 0. Two consequences:
+
+- Everything the build writes (`.build/`, `firmware/`, `.ccache/`) comes out
+  owned by your user on the host. Rootful Docker leaves root-owned artifacts
+  that need `sudo` to clean up.
+- The repo's apparent owner matches the container user, so git needs no
+  `safe.directory` workaround and Zephyr's `git describe` version probing works
+  unmodified.
+
+Docker works too (`KEYBALL39_ENGINE=docker`), with those two caveats.
+
+</details>
+
+<details>
+<summary>ccache</summary>
+
+ccache lives in `.ccache/` (gitignored) and is mounted at `/ccache`.
+`tools/build.sh` writes `.ccache/ccache.conf` on first run containing
+`ignore_options = -specs=*`.
+
+That line is load-bearing. Zephyr invokes the compiler with
+`-specs=picolibc.specs`, a *relative* path resolved via the compiler's own
+search dirs. ccache tries to `lstat` it from the build CWD to fold it into the
+hash, fails, and marks every translation unit `bad_compiler_arguments` — falling
+back to uncached compiles and leaving the cache at 0 bytes forever. Ignoring
+those options when hashing is safe because the spec files are frozen inside the
+container image.
+
+</details>
+
+### Drawing the keymap
+
+```bash
+./tools/draw.sh
+```
+
+Renders `draw/keyball39.svg` (per-layer) and `draw/overview.svg` (Base with
+Nav/Fn/Num/Sys as corner overlays, plus Combos). Both are committed and used in
+this README, so regenerate them after any change that affects the layout.
+
+`keymap-drawer` and `python-yq` run via `uvx`, so they resolve into uv's cache
+on first use and nothing is installed system-wide. The pipeline is idempotent:
+an unchanged keymap reproduces the committed SVGs byte-for-byte.
+
+### Migrating a checkout from Windows
+
+Two things bite when a workspace is copied off a Windows filesystem:
+
+- **Executable bits are lost.** ~800 files across `zephyr/`, `zmk/` and
+  `modules/` arrive as mode 0644, and the build dies at the first generator it
+  execs (`.../nanopb/generator/protoc: Permission denied`). Fix with
+  `./tools/fix-exec-bits.sh`, which re-applies `+x` to exactly the files git
+  records as mode 100755. If a build already ran, also rebuild that target with
+  `-p` — nanopb *copies* `protoc-gen-nanopb` into `.build/`, and that stale copy
+  stays non-executable.
+- **Line endings.** `.gitattributes` now pins `* text=auto eol=lf`. Without it,
+  CRLF-rewritten files show up as entirely-rewritten in `git diff`.
+
+### The upstream Nix workflow
+
+Upstream's setup uses `nix`, `direnv` and `just`, which builds an isolated
+environment with `west`, the `zephyr-sdk` and all dependencies on `cd` into the
+workspace. `flake.nix`, `.envrc` and the `Justfile` are all still here.
+
+<details>
+<summary>Setup</summary>
 
 1. Install the `nix` package manager:
 
@@ -488,9 +598,9 @@ environment is _completely isolated_ and won't pollute your system.
    ```
 
 2. Install [`direnv`](https://direnv.net/) (and optionally but recommended
-   [`nix-direnv`](https://github.com/nix-community/nix-direnv)[^4]) using your
+   [`nix-direnv`](https://github.com/nix-community/nix-direnv)) using your
    package manager of choice. E.g., using the `nix` package manager that we just
-   installed[^5]:
+   installed:
 
    ```
    nix profile install nixpkgs#direnv nixpkgs#nix-direnv
@@ -514,90 +624,54 @@ environment is _completely isolated_ and won't pollute your system.
    source ~/.bashrc
    ```
 
-#### Set up the workspace
-
-1. Clone _your fork_ of this repository. I like to name my local clone
-   `zmk-workspace` as it will be the toplevel of the development environment.
+4. Enter the workspace and set it up:
 
    ```bash
-   # Replace `urob` with your username
-   git clone https://github.com/urob/zmk-config zmk-workspace
+   cd keyball39
+   direnv allow   # sets up the environment; takes a while the first time
+   just init      # west init -l config && west update && west zephyr-export
    ```
 
-2. Enter the workspace and set up the environment.
+</details>
 
-   ```bash
-   # The first time you enter the workspace, you will be prompted to allow direnv
-   cd zmk-workspace
+<details>
+<summary>Usage</summary>
 
-   # Allow direnv for the workspace, which will set up the environment (this takes a while)
-   direnv allow
+`just build all` parses `build.yaml` and builds every board/shield combination
+in it; `just build keyball39` builds both halves. `just list` shows valid
+targets. Additional arguments are passed to `west`, so `just build all -p` does
+a pristine build. `just clean` clears the build cache.
 
-   # Initialize the Zephyr workspace and pull in the ZMK dependencies
-   # (same as `west init -l config && west update && west zephyr-export`)
-   just init
-   ```
+To update ZMK and the modules, use `just update`. To upgrade the Zephyr SDK and
+Python dependencies, `just upgrade-sdk` — use with care; the environment is
+otherwise pinned by `flake.lock`.
 
-### Usage
+**Note:** the `Justfile`'s `draw` recipe is upstream's and is out of date for
+this fork (it references `draw/base.yaml` and `-k ferris/sweep`). Use
+`./tools/draw.sh` instead.
 
-After following the steps above your workspace should look like this:
+</details>
 
-```
-zmk-workspace
-├── config
-├── firmware (created after building)
-├── modules
-├── zephyr
-└── zmk
-```
+<details>
+<summary>Devicetree formatter (experimental)</summary>
 
-#### Building the firmware
+The Nix environment packages a patched
+[`dts-linter`](https://github.com/kylebonnici/dts-linter):
 
-To build the firmware, simply type `just build all` from anywhere in the
-workspace. This will parse `build.yaml` and build the firmware for all board and
-shield combinations listed there.
-
-To only build the firmware for a specific target, use `just build <target>`.
-This will build the firmware for all matching board and shield combinations.
-For this fork's `build.yaml`, `just build keyball39` builds both
-`keyball39_left` and `keyball39_right` on `nice_nano@2.0.0//zmk`. (`just list`
-shows all valid build targets.)
-
-Additional arguments to `just build` are passed on to `west`. For instance, a
-pristine build can be triggered with `just build all -p`.
-
-(For this particular example, there is also a `just clean` recipe, which clears
-the build cache. To list all available recipes, type `just`. Bonus tip: `just`
-provides
-[completion scripts](https://github.com/casey/just?tab=readme-ov-file#shell-completion-scripts)
-for many shells.)
-
-#### Drawing the keymap
-
-The build environment packages
-[keymap-drawer](https://github.com/caksoylar/keymap-drawer). `just draw` parses
-`base.keymap` and draws it to `draw/base.svg`.
-
-#### Devicetree formatter (experimental)
-
-The build environment also packages a (patched and wrapped) version of 
-[`dts-linter`](https://github.com/kylebonnici/dts-linter). Usage:
 ```sh
 dts-format [--fix] [--use-tabs] [--tab-width <int>] [filelist]
 ```
-If no `filelist` is provided, `dts-format` will format all `dts`, `dtsi`, `overlay` and `keymap` 
-files *anywhere* below the current working directory -- Don't run this at the repo root unless you 
-want to format the entire zmk and zephyr base!.
 
-By default, `dts-format` will print a diff. Use the `--fix` flag to apply all changes directly to
-the source files. 
+If no `filelist` is given it formats every `dts`, `dtsi`, `overlay` and `keymap`
+file *anywhere* below the current directory — don't run it at the repo root
+unless you want to format the entire zmk and zephyr tree.
 
-Use `--use-tabs` to indent lines with tabs (default is `spaces`) and use `--tab-width` to specify the
-number of spaces per indentation level (default is `4`).
+By default it prints a diff; `--fix` applies changes. Guard manually aligned
+keymap blocks with `// dts-format off` / `// dts-format on`.
 
-To protect manually aligned keymap blocks, guard them by `// dts-format off` and `// dts-format on` comments.
+</details>
 
-#### Hacking the firmware
+### Hacking the firmware
 
 To make changes to the ZMK source or any of the modules, simply edit the files
 or use `git` to pull in changes.
@@ -608,17 +682,12 @@ branch with `git checkout <branch>` as usual. You may also want to register
 additional remotes to work with or consider making them the default in
 `config/west.yml`.
 
-#### Updating the build environment
+After changing `config/west.yml`, re-sync and rebuild from scratch:
 
-To update the ZMK dependencies, use `just update`. This will pull in the latest
-version of ZMK and all modules specified in `config/west.yml`. Make sure to
-commit and push all local changes you have made to ZMK and the modules before
-running this command, as this will overwrite them.
-
-To upgrade the Zephyr SDK and Python build dependencies, use `just upgrade-sdk`. (Use with care --
-Running this will upgrade all Nix packages and may end up breaking the build environment. When in
-doubt, I recommend keeping the environment pinned to `flake.lock`, which is [continuously
-tested](https://github.com/urob/zmk-config/actions/workflows/test-build-env.yml) on all systems.)
+```bash
+./tools/west-init.sh update
+./tools/build.sh -p
+```
 
 ## Bonus: A (moderately) faster Github Actions Workflow
 
@@ -656,6 +725,12 @@ Specific to this fork:
   installed WinCompose (or changed the firmware default to
   `UC_MODE_WIN_ALT`, which uses native Windows Alt+numpad codes with a
   `EnableHexNumpad=1` registry tweak).
+
+  **This blocker is Windows-specific and predates the move to Linux — it is due
+  a revisit.** `zmk-unicode` also ships `UC_MODE_LINUX`, which emits the
+  `Ctrl+Shift+U <hex> Enter` sequence that ibus and fcitx handle natively with
+  no extra software. Switching the default and re-enabling the two combos is
+  untested here so far.
 
 ## Related resources
 
