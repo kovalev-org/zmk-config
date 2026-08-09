@@ -26,6 +26,8 @@ physical positions Fn uses for F1–F12.
 
 ## Build
 
+No binary is committed — build it once:
+
 ```sh
 cd tools/totp-companion
 cargo build --release
@@ -34,10 +36,24 @@ cargo build --release
 
 The release binary has no runtime dependencies; copy it anywhere on `PATH`.
 
+`bluest` picks its backend per platform, so the same source builds everywhere:
+BlueZ over D-Bus on Linux, WinRT on Windows, CoreBluetooth on macOS. On Linux
+that means the build needs `libdbus-1` headers present (they come with the
+`dbus` package on Arch, `libdbus-1-dev` on Debian) and `bluetoothd` running at
+runtime — no root, no capabilities, and no separate pairing agent, since the
+tool never initiates pairing.
+
+`Cross.toml` is here for cross-compiling to Windows with
+[`cross`](https://github.com/cross-rs/cross); it is not needed for a native
+build.
+
 ## Usage
 
 Every command implicitly pushes the current host time to the keyboard before
 doing anything else, so the keyboard's clock is re-synced on each invocation.
+There is deliberately **no `set-time` subcommand** — after a power cycle, run
+whichever command you were going to run anyway, or `list` if you just want the
+clock set.
 
 ```sh
 # List the current state of all 30 slots
@@ -148,7 +164,8 @@ Commands on the command characteristic are TLV: one opcode byte, then payload.
 Labels are NUL-padded to 16 bytes. Keys are 1..64 raw bytes (no length prefix
 on the wire beyond `key_len`).
 
-The slots characteristic is 16 × 17 bytes = 272 bytes:
+The slots characteristic is 30 × 17 bytes = 510 bytes — just under the 512-byte
+BT ATT attribute ceiling, which is what caps the slot count:
 
 ```
 struct slot_entry {
@@ -159,7 +176,7 @@ struct slot_entry {
 
 After every mutating command the tool does a fresh read of the slots
 characteristic (write-then-read). The firmware *also* fires a notification on
-the slots characteristic after each mutation, but the payload (272 bytes) is
+the slots characteristic after each mutation, but the payload (510 bytes) is
 larger than the default ATT notify limit (~20 bytes), so the host currently
 ignores notifications and relies on the read path — ATT_READ_BLOB_REQ handles
 the long value transparently. A future MTU bump on the firmware side would
@@ -186,7 +203,7 @@ Both characteristics require an encrypted link. Pair through the OS first.
 ```
 src/
 ├── main.rs        # clap dispatch
-├── ble.rs         # btleplug client (scan, connect, write, read, notify)
+├── ble.rs         # bluest client (discover, connect, write, read, notify)
 ├── commands.rs    # list / write / set-label / delete
 └── protocol.rs    # opcodes, encoders, slot decoder, UUIDs
 ```

@@ -30,7 +30,7 @@ enum Command {
     List,
     /// Write a new key (or overwrite an existing one).
     Write {
-        /// Slot index, 0..15.
+        /// Slot index, 0..29.
         slot: u8,
         /// Label, up to 16 bytes UTF-8.
         label: String,
