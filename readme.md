@@ -343,6 +343,7 @@ board would be combos or homerow:
 | ----------- | ------------------- | ------------------------------------------- |
 | LH0 (innermost left thumb) | `&lt FN RET`        | hold = Fn, tap = Return                     |
 | LH1         | `&lt_spc NAV 0`     | hold = Nav, tap = Space with shifted morph  |
+| LH2         | `&codeblock_paste`  | wrap clipboard in a ``` fence, **Base only** |
 | LH5 (leftmost left thumb)  | `&mo SYS`           | hold = Sys (Bluetooth / bootloader / reset) |
 | RH0         | `&magic_shift …`    | upstream's Magic Repeat/Shift/Capsword      |
 | RH1         | `&smart_num NUM 0`  | hold = Num, tap = Smart-Num (sticky digit)  |

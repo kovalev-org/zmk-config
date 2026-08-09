@@ -122,18 +122,48 @@
 
 // Macro bound to position 33 (LH2, the key immediately left of the Nav thumb
 // at LH1). Wraps the clipboard contents in a Markdown fenced code block for an
-// AI-agent chat box where Ctrl+J inserts a newline (plain Enter submits):
-//   Ctrl+J → ``` → Ctrl+V (paste) → ``` → Ctrl+J
-// Ctrl+J is ASCII LF, the universal terminal newline. GRAVE is the unshifted
-// backtick; three in a row form the ``` fence.
+// AI-agent chat box where Shift+Enter inserts a newline (plain Enter submits).
+// Each ``` fence sits on its own line for valid Markdown, with a blank line
+// padding the block top and bottom:
+//   S+Ret ×2 → ``` → S+Ret → Ctrl+V (paste) → S+Ret → ``` → S+Ret ×2
+// yielding (with leading/trailing blank lines):
+//
+//   ```
+//   <clipboard>
+//   ```
+//
+// Shift+Enter is the near-universal "newline without submitting" chord in web
+// chat UIs (ChatGPT, Claude, Slack, Discord, ...). It replaced Ctrl+J (ASCII
+// LF), which is the terminal convention but is NOT handled by most browser
+// text boxes — several of them treat Ctrl+J as the browser's own Downloads
+// shortcut instead. GRAVE is the unshifted backtick; three in a row form the
+// ``` fence.
+//
+// NOTE: Shift is a live modifier here, so this macro must not be fired while
+// another shift-like behavior is engaged (caps-word, a sticky shift from Magic
+// Shift). The fences would come out as ~~~ (shifted backtick) instead of ```.
+//
+// Timing matters because this is a BLE keyboard. tap-ms/wait-ms must comfortably
+// exceed the HID connection interval (~15 ms) or the press+release of a key can
+// land inside a single interval and get coalesced/dropped — the old 5 ms values
+// caused "six backticks, no paste" (chorded keys that must hold a modifier
+// across the tap are the most fragile, which now includes every Shift+Enter as
+// well as Ctrl+V). 30 ms gives ~2x margin. The `&macro_wait_time 200` after
+// Ctrl+V lets the host finish the (possibly large) paste before the closing
+// fence is typed, so the trailing ``` isn't swallowed. If it's still
+// occasionally flaky on a slow app or huge clipboard, raise that 200 ms.
 ZMK_MACRO(codeblock_paste,
-    wait-ms = <5>;
-    tap-ms = <5>;
-    bindings = <&kp LC(J)
+    wait-ms = <30>;
+    tap-ms = <30>;
+    bindings = <&kp LS(ENTER) &kp LS(ENTER)
                 &kp GRAVE &kp GRAVE &kp GRAVE
+                &kp LS(ENTER)
+                &macro_wait_time 200
                 &kp LC(V)
+                &macro_wait_time 30
+                &kp LS(ENTER)
                 &kp GRAVE &kp GRAVE &kp GRAVE
-                &kp LC(J)>;
+                &kp LS(ENTER) &kp LS(ENTER)>;
 )
 
 // TOTP layer index — comes after base.keymap's DEF/NAV/FN/NUM/SYS/MOUSE (0..5)
