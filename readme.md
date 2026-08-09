@@ -37,8 +37,8 @@ Inherited from upstream urob:
 Specific to this fork:
 
 - [QWERTY base layer](#keyball39-specific-changes) (upstream uses Colemak)
-- Working **trackball** via Zephyr 4.1's native `pixart,pmw3610` driver — no
-  out-of-tree fork required
+- Working **trackball** via the community `zmk,pmw3610` driver, with per-axis
+  cursor scaling to correct an asymmetric sensor
 - **Auto-mouse layer**: trackball motion temporarily enables the Mouse layer for 3 s
 - **Scroll mode**: hold the Nav thumb and roll the trackball — vertical-natural
   scroll at one-third speed
@@ -300,36 +300,54 @@ re-synced from upstream cleanly.
 
 ### Trackball + auto-mouse + scroll mode
 
-The PMW3610 sensor on the right half is wired up using **Zephyr 4.1's native
-`pixart,pmw3610` driver** — no third-party module required. Everything that the
-old kumamuk-git fork did via Kconfig (CPI, smart-mode, orientation) is now
-devicetree properties on the trackball node:
+The PMW3610 sensor on the right half is wired up using the **community
+[`zmk-pmw3610-driver`](https://github.com/mochukeeb/zmk-pmw3610-driver)** (pinned
+in [`config/west.yml`](config/west.yml)) — the same driver used by the reference
+Keyball39 config that tracks correctly on identical hardware.
+
+I originally used Zephyr 4.1's native `pixart,pmw3610` driver, but tracking was
+never right on this unit. The two drivers are configured in **opposite** ways:
+the native one takes its tuning from devicetree properties, this one takes it
+all from Kconfig (`CONFIG_PMW3610_*` in
+[`keyball39_right.conf`](config/boards/shields/keyball_nano/keyball39_right.conf)).
+Settings do not carry over — notably the native overlay's 90° axis swap plus
+`invert-x` became a single `CONFIG_PMW3610_ORIENTATION_180=y`.
 
 ```dts
 trackball: trackball@0 {
-    compatible = "pixart,pmw3610";
-    motion-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-    zephyr,axis-x = <INPUT_REL_Y>;  /* sensor mounted 90° rotated */
-    zephyr,axis-y = <INPUT_REL_X>;
-    invert-x;
-    res-cpi = <1200>;
-    smart-mode;
-    /* …spi properties… */
+    compatible = "zmk,pmw3610";
+    irq-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+    spi-max-frequency = <2000000>;
+    scroll-layers = <2>;   /* wheel events while Nav is held */
+    /* …all other tuning lives in Kconfig… */
 };
 ```
+
+Note there is deliberately **no `automouse-layer`** on the node: that code path
+calls a pre-2-arg `zmk_keymap_layer_activate()` that no longer matches ZMK
+`main`. Auto-mouse is done with `&zip_temp_layer` in the input listener instead,
+which keeps the incompatible code `#if`'d out.
 
 On top of the raw driver, an input-listener chain gives the trackball three modes:
 
 - **Cursor (default)**: trackball motion moves the pointer. Every motion event
   also activates the Mouse layer for 3 seconds (`&zip_temp_layer MOUSE 3000`),
   so the right thumb cluster's `&mkp LCLK / MCLK / RCLK` bindings become
-  available immediately after you start moving.
-- **Scroll (hold Nav thumb)**: while the Nav layer is active, trackball motion
-  is remapped to wheel events instead of cursor motion. The chain is
-  `zip_xy_to_scroll_mapper` → `zip_scroll_scaler 1 3` (one-third speed both
-  axes) → a custom `zip_wheel_scaler -1 1` (vertical-only inversion for
-  natural-direction scrolling — upstream only ships scrolling scalers that hit
-  both axes).
+  available immediately after you start moving. The driver emits raw counts at
+  full 1200 CPI and the listener does the scaling: `&zip_x_scaler 1 4` and
+  `&zip_y_scaler 3 4`. X lands at an effective ~300 CPI; Y gets 3× the
+  per-count gain because this unit's sensor reports roughly 3× fewer counts
+  vertically than horizontally. Both scalers set `track-remainders`, so slow
+  motion doesn't round away to zero — **any scaler with a non-unity ratio needs
+  a custom node with that property**, since the predefined `&zip_xy_scaler` /
+  `&zip_scroll_scaler` don't set it.
+- **Scroll (hold Nav thumb)**: the *driver* handles this via `scroll-layers =
+  <2>`, emitting wheel events directly while Nav is held. The listener's
+  `scroll { layers = <2>; }` child is an intentionally **empty** processor list,
+  which replaces the auto-mouse chain rather than adding to it — otherwise wheel
+  events would trip `&zip_temp_layer`, activate the Mouse layer, and the driver
+  would see Mouse (6) rather than Nav (2) as the top layer and flip back to
+  cursor mode mid-scroll.
 - **Multi-click-aware deactivation**: pressing any mouse button on the Mouse
   layer routes through ZMK's built-in `mkp_input_listener`, which we extend
   with `&zip_temp_layer MOUSE 500`. Each click re-arms the Mouse layer's

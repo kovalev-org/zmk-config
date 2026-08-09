@@ -108,14 +108,31 @@
 };
 
 / {
-    // This unit's trackball reports ~3x fewer counts vertically (REL_Y) than
-    // horizontally, so with the driver's symmetric CPI_DIVIDOR the vertical
-    // cursor came out ~3x too slow while horizontal felt right. Boost REL_Y
-    // by 3x to rebalance. This scaler ONLY touches REL_Y, so horizontal (REL_X)
-    // and scroll (REL_WHEEL/HWHEEL) are untouched. track-remainders preserves
-    // fractional counts, so if 3x is retuned to a non-integer ratio later
-    // (e.g. <5 2> = 2.5x) slow vertical motion still won't round away.
-    zip_y_boost: zip_y_boost {
+    // Per-axis cursor scaling. The driver emits full-resolution raw counts
+    // (CONFIG_PMW3610_CPI_DIVIDOR=1), and we scale here with track-remainders
+    // so the fraction dropped by integer division is carried into the next
+    // event instead of being rounded away — that's what keeps slow motion
+    // smooth instead of stepping. (Letting the driver do the ÷4 is what made
+    // vertical notchy: its integer division has no remainder tracking, and the
+    // coarse result was then tripled.)
+    //
+    //   X: ×1/4  → effective ~300 CPI (1200/4), matches the previous feel.
+    //   Y: ×3/4  → 3× the per-count gain of X, correcting this unit's ~3×
+    //              weaker vertical sensor response. Net vertical speed equals
+    //              horizontal, now at full 1-count granularity.
+    //
+    // To rebalance the axes later, change only the Y ratio (3/4). Each scaler
+    // filters on `codes`, so zip_x_scaler ignores Y (and vice versa) and both
+    // ignore scroll wheel events.
+    zip_x_scaler: zip_x_scaler {
+        compatible = "zmk,input-processor-scaler";
+        #input-processor-cells = <2>;
+        type = <INPUT_EV_REL>;
+        codes = <INPUT_REL_X>;
+        track-remainders;
+    };
+
+    zip_y_scaler: zip_y_scaler {
         compatible = "zmk,input-processor-scaler";
         #input-processor-cells = <2>;
         type = <INPUT_EV_REL>;
@@ -131,10 +148,9 @@
         // layer (index 6) for 3000 ms, turning the right-hand/thumb keys into
         // mouse buttons after you touch the ball. Auto-deactivates 3 s after
         // the last motion (or 500 ms after the last click, via
-        // &mkp_input_listener above). The driver sets overall speed internally
-        // (CONFIG_PMW3610_CPI 1200 ÷ CONFIG_PMW3610_CPI_DIVIDOR 4 ≈ 300
-        // effective CPI); &zip_y_boost only rebalances the vertical axis.
-        input-processors = <&zip_temp_layer 6 3000 &zip_y_boost 3 1>;
+        // &mkp_input_listener above). Overall speed + the X/Y rebalance are set
+        // by the per-axis scalers above.
+        input-processors = <&zip_temp_layer 6 3000 &zip_x_scaler 1 4 &zip_y_scaler 3 4>;
 
         // Nav layer (index 2) = scroll. The sensor node already remaps motion
         // to wheel events on this layer (scroll-layers = <2>), so this override
