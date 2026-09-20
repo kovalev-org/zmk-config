@@ -3,8 +3,9 @@
 A small Rust CLI for provisioning TOTP slots on a Keyball39 keyboard over BLE.
 
 The keyboard stores up to 30 TOTP slots (key + 16-byte label) in its settings
-partition. This tool writes them, renames them, deletes them, and lists what's
-where. Keys are **write-only** — they can be written but never read back.
+partition. This tool writes them, renames them, swaps them, deletes them, and
+lists what's where. Keys are **write-only** — they can be written but never
+read back.
 
 The matching keyboard-side behavior `&totp <slot>` (firmware) takes one slot
 index, computes the current 6-digit TOTP, types it via HID, and flashes the
@@ -64,6 +65,9 @@ keyball39-totp write 0 github JBSWY3DPEHPK3PXP
 
 # Rename slot 0 without touching the key
 keyball39-totp set-label 0 github-work
+
+# Exchange slot 0 and slot 5 (key and label both move)
+keyball39-totp swap 0 5
 
 # Erase slot 0
 keyball39-totp delete 0
@@ -160,9 +164,15 @@ Commands on the command characteristic are TLV: one opcode byte, then payload.
 | `0x02` | `SET_LABEL` | `u8 slot, [16]u8 label` |
 | `0x03` | `WRITE_SLOT` | `u8 slot, [16]u8 label, u8 key_len, key bytes` |
 | `0x04` | `DELETE_SLOT` | `u8 slot` |
+| `0x05` | `SWAP_SLOTS` | `u8 slot_a, u8 slot_b` |
 
 Labels are NUL-padded to 16 bytes. Keys are 1..64 raw bytes (no length prefix
 on the wire beyond `key_len`).
+
+`SWAP_SLOTS` exists as a firmware opcode rather than a pair of host-side writes
+because keys are write-only: the tool can't read a key back to re-write it at
+the other index. The firmware exchanges the whole slot record and persists each
+side according to its new occupancy, so swapping with an empty slot is a move.
 
 The slots characteristic is 30 × 17 bytes = 510 bytes — just under the 512-byte
 BT ATT attribute ceiling, which is what caps the slot count:
@@ -194,9 +204,10 @@ Both characteristics require an encrypted link. Pair through the OS first.
   Same threat model as YubiKey OATH without a PIN.
 - Anyone who pairs to your keyboard can write to it. Don't pair to hosts you
   don't trust.
-- The tool intentionally cannot read keys back. Back up your secrets in a
-  password manager when you first scan the QR code — there's no recovery path
-  from the keyboard.
+- The tool intentionally cannot read keys back (which is why `swap` is done on
+  the keyboard, not by reading a key and writing it elsewhere). Back up your
+  secrets in a password manager when you first scan the QR code — there's no
+  recovery path from the keyboard.
 
 ## Project layout
 

@@ -52,6 +52,13 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
+    /// Exchange the key and label of two slots.
+    Swap {
+        /// First slot index, 0..29.
+        slot_a: u8,
+        /// Second slot index, 0..29.
+        slot_b: u8,
+    },
 }
 
 #[tokio::main]
@@ -74,5 +81,6 @@ async fn dispatch(kb: &Keyboard, cmd: Command) -> Result<()> {
         } => commands::write(kb, slot, &label, &secret, force).await,
         Command::SetLabel { slot, label } => commands::set_label(kb, slot, &label).await,
         Command::Delete { slot, force } => commands::delete(kb, slot, force).await,
+        Command::Swap { slot_a, slot_b } => commands::swap(kb, slot_a, slot_b).await,
     }
 }

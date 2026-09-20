@@ -69,6 +69,40 @@ pub async fn delete(kb: &Keyboard, slot: u8, force: bool) -> Result<()> {
     Ok(())
 }
 
+/// Exchange the key and label of two slots.
+///
+/// Nothing is lost either way round, so there's no confirmation prompt: a
+/// mistaken swap is undone by running the same command again.
+pub async fn swap(kb: &Keyboard, a: u8, b: u8) -> Result<()> {
+    // Encoding first so an out-of-range index is rejected before we go over
+    // the air to read state we'd only discard.
+    let cmd = protocol::encode_swap_slots(a, b)?;
+    if a == b {
+        bail!("slot {} and slot {} are the same slot", a, b);
+    }
+
+    let current = kb.read_slots().await?;
+    let occupant = |slot: u8| match current.get(slot as usize).and_then(|s| s.as_ref()) {
+        Some(s) => format!("{:?}", s.label),
+        None => "empty".to_owned(),
+    };
+    if current[a as usize].is_none() && current[b as usize].is_none() {
+        println!("slots {} and {} are both empty; nothing to swap", a, b);
+        return Ok(());
+    }
+
+    println!(
+        "swapping slot {} ({}) with slot {} ({})",
+        a,
+        occupant(a),
+        b,
+        occupant(b)
+    );
+    let updated = kb.apply(&cmd).await?;
+    print_slots(&updated);
+    Ok(())
+}
+
 fn decode_base32_secret(secret: &str) -> Result<Vec<u8>> {
     let cleaned: String = secret
         .chars()

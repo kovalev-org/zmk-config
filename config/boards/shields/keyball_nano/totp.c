@@ -57,6 +57,7 @@ enum totp_opcode {
     OP_SET_LABEL    = 0x02,
     OP_WRITE_SLOT   = 0x03,
     OP_DELETE_SLOT  = 0x04,
+    OP_SWAP_SLOTS   = 0x05,
 };
 
 struct totp_slot {
@@ -169,6 +170,17 @@ static int delete_slot(int slot)
     return 0;
 }
 
+/*
+ * Write whatever totp_slots[slot] currently holds back to flash: a save for an
+ * occupied slot, a delete for an empty one. Used by the swap path, where a
+ * slot can go either way. Empty slots are always all-zero in RAM, so the
+ * memset inside delete_slot() is a no-op here.
+ */
+static int persist_slot(int slot)
+{
+    return totp_slots[slot].occupied ? save_slot(slot) : delete_slot(slot);
+}
+
 /* ---------- Slot packing for the read/notify characteristic ---------- */
 
 static void pack_slots(uint8_t out[SLOTS_PAYLOAD_LEN])
@@ -268,6 +280,40 @@ static int handle_delete_slot(const uint8_t *payload, size_t len)
     return delete_slot(slot);
 }
 
+/*
+ * Exchange two slots wholesale — key, label and occupancy. Done here rather
+ * than host-side because keys are write-only over GATT: the companion tool
+ * cannot read a key back to re-write it at the other index.
+ *
+ * Swapping with an empty slot is a move, and swapping two empty slots is a
+ * no-op; both fall out of the generic copy. Each side is then persisted
+ * according to its *new* occupancy.
+ */
+static int handle_swap_slots(const uint8_t *payload, size_t len)
+{
+    if (len != 2) {
+        return -EINVAL;
+    }
+    uint8_t a = payload[0];
+    uint8_t b = payload[1];
+    if (a >= TOTP_SLOT_COUNT || b >= TOTP_SLOT_COUNT) {
+        return -EINVAL;
+    }
+    if (a == b) {
+        return 0;
+    }
+
+    struct totp_slot tmp = totp_slots[a];
+    totp_slots[a] = totp_slots[b];
+    totp_slots[b] = tmp;
+
+    /* Persist both halves even if the first fails, so RAM and flash don't
+     * drift further apart than they already have; report the first error. */
+    int err_a = persist_slot(a);
+    int err_b = persist_slot(b);
+    return err_a ? err_a : err_b;
+}
+
 static ssize_t command_write(struct bt_conn *conn,
                               const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len,
@@ -306,6 +352,10 @@ static ssize_t command_write(struct bt_conn *conn,
         break;
     case OP_DELETE_SLOT:
         err = handle_delete_slot(payload, plen);
+        slots_changed = (err == 0);
+        break;
+    case OP_SWAP_SLOTS:
+        err = handle_swap_slots(payload, plen);
         slots_changed = (err == 0);
         break;
     default:

@@ -26,6 +26,7 @@ pub enum Opcode {
     SetLabel = 0x02,
     WriteSlot = 0x03,
     DeleteSlot = 0x04,
+    SwapSlots = 0x05,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,6 +73,17 @@ pub fn encode_write_slot(slot: u8, label: &str, key: &[u8]) -> Result<Vec<u8>> {
 pub fn encode_delete_slot(slot: u8) -> Result<Vec<u8>> {
     check_slot(slot)?;
     Ok(vec![Opcode::DeleteSlot as u8, slot])
+}
+
+/// Exchange the key and label of two slots.
+///
+/// This has to be a firmware opcode rather than a pair of host-side writes:
+/// keys are write-only over GATT, so the tool can't read one back to re-write
+/// it at the other index.
+pub fn encode_swap_slots(a: u8, b: u8) -> Result<Vec<u8>> {
+    check_slot(a)?;
+    check_slot(b)?;
+    Ok(vec![Opcode::SwapSlots as u8, a, b])
 }
 
 pub fn decode_slots(payload: &[u8]) -> Result<[Option<Slot>; SLOT_COUNT]> {
@@ -160,6 +172,17 @@ mod tests {
     #[test]
     fn slot_out_of_range_rejected() {
         assert!(encode_delete_slot(SLOT_COUNT as u8).is_err());
+    }
+
+    #[test]
+    fn swap_slots_layout() {
+        assert_eq!(encode_swap_slots(2, 7).unwrap(), vec![0x05, 2, 7]);
+    }
+
+    #[test]
+    fn swap_slot_out_of_range_rejected() {
+        assert!(encode_swap_slots(0, SLOT_COUNT as u8).is_err());
+        assert!(encode_swap_slots(SLOT_COUNT as u8, 0).is_err());
     }
 
     #[test]
